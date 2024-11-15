@@ -9,7 +9,7 @@ pub fn transform_assets_to_uppercase(assets: &HashMap<String, String>) -> HashMa
 }
 
 pub fn hashmap_to_json_value(map: HashMap<String, String>) -> Result<Value, StabuseError> {
-    let value = serde_json::to_value(map).map_err(|err| StabuseError::SerdeError(err))?;
+    let value = serde_json::to_value(map).map_err(|err| StabuseError::SerdeError(err.to_string()))?;
 
     Ok(value)
 }
