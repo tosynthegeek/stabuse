@@ -1,10 +1,9 @@
 use std::fmt::{self};
-use serde_json::Error as SerdeError;
 
 #[derive(Debug)]
 pub enum StabuseError {
     DatabaseError(sqlx::Error),
-    SerdeError(SerdeError),
+    SerdeError(String),
     InvalidAssetFormat(String)
 }
 

@@ -4,7 +4,11 @@ use sqlx::{postgres::PgPoolOptions, PgPool, Pool, Postgres};
 
 use crate::error::StabuseError;
 
-use super::migrations::{CREATE_INDEX_BUSD, CREATE_INDEX_DAI, CREATE_INDEX_USDC, CREATE_INDEX_USDT,  CREATE_NETWORK_TABLE, TRIGGER, TRIGGER_FUNCTION};
+use super::migrations::networks::{
+    create_indexes::{CREATE_INDEX_BUSD, CREATE_INDEX_DAI, CREATE_INDEX_USDC, CREATE_INDEX_USDT},  
+    create_networks_table::CREATE_NETWORK_TABLE, 
+    triggers_and_functions::{TRIGGER, TRIGGER_FUNCTION}
+};
 
 pub async fn init_db(pool: &PgPool) -> Result<(), StabuseError> {
     sqlx::query(CREATE_NETWORK_TABLE).execute(pool).await?;
