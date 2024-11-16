@@ -11,3 +11,12 @@ pub const GET_NETWORK: &str = r#"
 pub const GET_ALL_NETWORKS: &str = r#"
     SELECT * FROM networks
 "#;
+
+pub const CHECK_NETWORK_SUPPORTED_ASSET: &str = r#"
+    SELECT EXISTS(
+        SELECT 1
+        FROM networks
+        WHERE chain_id = $1
+          AND supported_assets ? $2
+    )
+"#;
