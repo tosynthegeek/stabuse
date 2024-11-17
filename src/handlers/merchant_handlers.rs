@@ -1,19 +1,21 @@
-use actix_web::{web, HttpRequest, HttpResponse, Responder};
+use actix_web::{web, HttpMessage, HttpRequest, HttpResponse, Responder};
+use serde_json::json;
 use sqlx::PgPool;
 use tracing::error as TracingError;
 
 use crate::{
+    error::StabuseError,
     merchant::merchant::{
         add_merchant_supported_network, add_new_merchant_network_asset, create_merchant_account,
-        remove_merchant_network_asset, update_merchant_network_address,
+        merchant_login, remove_merchant_network_asset, update_merchant_network_address,
     },
     types::types::{
-        CreateMerchantRequest, MerchantAddressRequest, MerchantAssetRequest, MerchantNetworkRequest,
+        Claims, CreateMerchantRequest, LoginCredentials, MerchantAddressRequest,
+        MerchantAssetRequest, MerchantNetworkRequest,
     },
 };
 
 pub async fn create_merchant_account_handler(
-    _req: HttpRequest,
     pool: web::Data<PgPool>,
     form: web::Json<CreateMerchantRequest>,
 ) -> impl Responder {
@@ -41,17 +43,20 @@ pub async fn create_merchant_account_handler(
 }
 
 pub async fn add_merchant_asset_handler(
-    _req: HttpRequest,
+    req: HttpRequest,
     pool: web::Data<PgPool>,
     form: web::Json<MerchantAssetRequest>,
 ) -> impl Responder {
-    let MerchantAssetRequest {
-        username,
-        chain_id,
-        asset,
-    } = form.into_inner();
+    let MerchantAssetRequest { chain_id, asset } = form.into_inner();
+    let claims = req
+        .extensions()
+        .get::<Claims>()
+        .expect("Claims must be present in request")
+        .clone();
 
-    match add_new_merchant_network_asset(&pool, &username, chain_id, &asset).await {
+    let username = &claims.username;
+
+    match add_new_merchant_network_asset(&pool, username, chain_id, &asset).await {
         Ok(networks) => HttpResponse::Created().json(serde_json::json!({
             "status": "success",
             "message": "Merchant asset added successfully",
@@ -68,17 +73,20 @@ pub async fn add_merchant_asset_handler(
 }
 
 pub async fn remove_merchant_asset_handler(
-    _req: HttpRequest,
+    req: HttpRequest,
     pool: web::Data<PgPool>,
     form: web::Json<MerchantAssetRequest>,
 ) -> impl Responder {
-    let MerchantAssetRequest {
-        username,
-        chain_id,
-        asset,
-    } = form.into_inner();
+    let MerchantAssetRequest { chain_id, asset } = form.into_inner();
+    let claims = req
+        .extensions()
+        .get::<Claims>()
+        .expect("Claims must be present in request")
+        .clone();
 
-    match remove_merchant_network_asset(&pool, &username, chain_id, &asset).await {
+    let username = &claims.username;
+
+    match remove_merchant_network_asset(&pool, username, chain_id, &asset).await {
         Ok(networks) => HttpResponse::Created().json(serde_json::json!({
             "status": "success",
             "message": "Merchant asset removed successfully",
@@ -95,18 +103,25 @@ pub async fn remove_merchant_asset_handler(
 }
 
 pub async fn add_merchant_network_handler(
-    _req: HttpRequest,
+    req: HttpRequest,
     pool: web::Data<PgPool>,
     form: web::Json<MerchantNetworkRequest>,
 ) -> impl Responder {
     let MerchantNetworkRequest {
-        username,
         chain_id,
         supported_assets,
         address,
     } = form.into_inner();
 
-    match add_merchant_supported_network(&pool, &username, chain_id, supported_assets, &address)
+    let claims = req
+        .extensions()
+        .get::<Claims>()
+        .expect("Claims must be present in request")
+        .clone();
+
+    let username = &claims.username;
+
+    match add_merchant_supported_network(&pool, username, chain_id, supported_assets, &address)
         .await
     {
         Ok(networks) => HttpResponse::Created().json(serde_json::json!({
@@ -125,17 +140,19 @@ pub async fn add_merchant_network_handler(
 }
 
 pub async fn update_merchant_network_address_handler(
-    _req: HttpRequest,
+    req: HttpRequest,
     pool: web::Data<PgPool>,
     form: web::Json<MerchantAddressRequest>,
 ) -> impl Responder {
-    let MerchantAddressRequest {
-        username,
-        chain_id,
-        address,
-    } = form.into_inner();
+    let MerchantAddressRequest { chain_id, address } = form.into_inner();
+    let claims = req
+        .extensions()
+        .get::<Claims>()
+        .expect("Claims must be present in request")
+        .clone();
+    let username = &claims.username;
 
-    match update_merchant_network_address(&pool, &username, chain_id, &address).await {
+    match update_merchant_network_address(&pool, username, chain_id, &address).await {
         Ok(networks) => HttpResponse::Created().json(serde_json::json!({
             "status": "success",
             "message": "Merchant network address updated successfully",
@@ -147,6 +164,25 @@ pub async fn update_merchant_network_address_handler(
                 "status": "error",
                 "message": format!("Failed to update merchant network address: {}", e),
             }))
+        }
+    }
+}
+
+pub async fn merchant_login_handler(
+    pool: web::Data<PgPool>,
+    credentials: web::Json<LoginCredentials>,
+) -> Result<HttpResponse, StabuseError> {
+    match merchant_login(&pool, &credentials.username_or_email, &credentials.password).await {
+        Ok(login_response) => Ok(HttpResponse::Ok().json(serde_json::json!({
+            "status": "success",
+            "message": "Login Successful",
+            "response": login_response,
+        }))),
+        Err(e) => {
+            TracingError!(error = ?e, "Login error");
+            Ok(HttpResponse::Unauthorized().json(json!({
+                "error": "Invalid credentials"
+            })))
         }
     }
 }

@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use sqlx::prelude::FromRow;
 use std::collections::HashMap;
 
 // #[derive(Debug, PartialEq, Clone, Copy)]
@@ -54,14 +55,12 @@ pub struct CreateMerchantRequest {
 
 #[derive(Deserialize)]
 pub struct MerchantAssetRequest {
-    pub username: String,
     pub chain_id: i64,
     pub asset: String,
 }
 
 #[derive(Deserialize)]
 pub struct MerchantNetworkRequest {
-    pub username: String,
     pub chain_id: i64,
     pub supported_assets: Vec<String>,
     pub address: String,
@@ -69,7 +68,34 @@ pub struct MerchantNetworkRequest {
 
 #[derive(Deserialize)]
 pub struct MerchantAddressRequest {
-    pub username: String,
     pub chain_id: i64,
     pub address: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct LoginResponse {
+    pub token: String,
+    pub merchant_id: i32,
+    pub username: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Claims {
+    pub sub: i32, // merchant ID
+    pub username: String,
+    pub exp: i64, // expiration timestamp
+    pub iat: i64, // issued at timestamp
+}
+
+#[derive(Debug, Serialize, Deserialize, FromRow)]
+pub struct MerchantCredentials {
+    pub id: i32,
+    pub username: String,
+    pub password_hash: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, FromRow)]
+pub struct LoginCredentials {
+    pub username_or_email: String,
+    pub password: String,
 }
