@@ -1,15 +1,27 @@
+use std::env;
+
 use crate::{
-    db::migrations::merchants::insert_and_update_merchants::{
-        ADD_ASSET_MERCHANT, ADD_MERCHANT, ADD_MERCHANT_SUPPORTED_NETWORK, REMOVE_ASSET_MERCHANT,
-        UPDATE_NETWORK_ADDRESS_MERCHANT,
+    auth::auth::generate_jwt,
+    db::migrations::merchants::{
+        insert_and_update_merchants::{
+            ADD_ASSET_MERCHANT, ADD_MERCHANT, ADD_MERCHANT_SUPPORTED_NETWORK,
+            REMOVE_ASSET_MERCHANT, UPDATE_NETWORK_ADDRESS_MERCHANT,
+        },
+        select_queries::LOGIN_ATTEMPT,
     },
     error::StabuseError,
     network::network::is_asset_supported_on_network,
+    types::types::{LoginResponse, MerchantCredentials},
     utils::{
-        utils::{hash_password, validate_supported_assets, validate_supported_networks},
-        validation::{validate_address, validate_email, validate_password, validate_username},
+        utils::hash_password,
+        validation::{
+            address_validation::validate_address,
+            domain_validation::{validate_supported_assets, validate_supported_networks},
+            input_validation::{validate_email, validate_password, validate_username},
+        },
     },
 };
+use bcrypt::verify;
 use serde_json::{json, Value};
 use sqlx::PgPool;
 
@@ -48,6 +60,43 @@ pub async fn create_merchant_account(
     Ok(id)
 }
 
+pub async fn merchant_login(
+    pool: &PgPool,
+    username_or_email: &str,
+    password: &str,
+) -> Result<LoginResponse, StabuseError> {
+    let merchant = sqlx::query_as::<_, MerchantCredentials>(LOGIN_ATTEMPT)
+        .bind(username_or_email)
+        .fetch_optional(pool)
+        .await?;
+
+    let merchant = match merchant {
+        Some(merchant) => merchant,
+        None => {
+            return Err(StabuseError::InvalidCredentials(format!(
+                "Incorrect Password"
+            )))
+        }
+    };
+
+    if !verify(password, &merchant.password_hash)? {
+        return Err(StabuseError::InvalidCredentials(
+            "Invalid credentials".to_string(),
+        ));
+    }
+
+    dotenv::dotenv().ok();
+    let jwt_secret = env::var("JWT_SECRET").expect("JWT_SECRET not set");
+
+    let token = generate_jwt(merchant.id, &merchant.username, jwt_secret)?;
+
+    Ok(LoginResponse {
+        token,
+        merchant_id: merchant.id,
+        username: merchant.username,
+    })
+}
+
 pub async fn add_new_merchant_network_asset(
     pool: &PgPool,
     username: &str,
@@ -62,7 +111,7 @@ pub async fn add_new_merchant_network_asset(
         )));
     }
     let updated_networks: Value = sqlx::query_scalar(ADD_ASSET_MERCHANT)
-        .bind(chain_id)
+        .bind(chain_id.to_string())
         .bind(asset)
         .bind(username)
         .fetch_one(pool)
@@ -80,7 +129,7 @@ pub async fn remove_merchant_network_asset(
 ) -> Result<Value, StabuseError> {
     let asset = asset_value.to_uppercase();
     let updated_networks: Value = sqlx::query_scalar(REMOVE_ASSET_MERCHANT)
-        .bind(chain_id)
+        .bind(chain_id.to_string())
         .bind(asset)
         .bind(username)
         .fetch_one(pool)
