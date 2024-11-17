@@ -14,7 +14,7 @@ use crate::{
     },
     utils::{
         utils::{hashmap_to_json_value, transform_assets_to_uppercase},
-        validation::validate_assets,
+        validation::domain_validation::validate_assets,
     },
 };
 use serde_json::Value;
