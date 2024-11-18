@@ -11,7 +11,7 @@ use crate::{
         select_queries::{GET_ADMIN_COUNT, GET_INVITE_DETAILS},
     },
     error::StabuseError,
-    types::types::{AdminDetails, AdminInvite},
+    types::types::AdminInvite,
     utils::utils::hash_password,
 };
 
