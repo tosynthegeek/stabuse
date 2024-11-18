@@ -12,6 +12,8 @@ pub enum StabuseError {
     AssetNotSupportedonNetwork(String),
     JWTError(String),
     HttpError(HttpError),
+    Forbidden(String),
+    Unauthorized(String),
 }
 
 impl fmt::Display for StabuseError {
@@ -28,6 +30,8 @@ impl fmt::Display for StabuseError {
             }
             StabuseError::JWTError(msg) => write!(f, "JWT Error: {}", msg),
             StabuseError::HttpError(err) => write!(f, "Http Error: {}", err),
+            StabuseError::Forbidden(msg) => write!(f, "Fobidden: {}", msg),
+            StabuseError::Unauthorized(msg) => write!(f, "Unauthorized: {}", msg),
         }
     }
 }
@@ -88,6 +92,12 @@ impl ResponseError for StabuseError {
             StabuseError::InvalidCredentials(msg) => {
                 HttpResponse::Unauthorized().json(serde_json::json!({ "error": msg }))
             }
+            StabuseError::Forbidden(msg) => {
+                HttpResponse::Forbidden().json(serde_json::json!({"error": msg}))
+            }
+            StabuseError::Unauthorized(msg) => {
+                HttpResponse::Unauthorized().json(serde_json::json!({"error": msg}))
+            }
         }
     }
 
@@ -101,7 +111,9 @@ impl ResponseError for StabuseError {
             StabuseError::AssetNotSupportedonNetwork(_) => actix_web::http::StatusCode::BAD_REQUEST,
             StabuseError::JWTError(_) => actix_web::http::StatusCode::UNAUTHORIZED,
             StabuseError::HttpError(_) => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-            Self::InvalidCredentials(_) => actix_web::http::StatusCode::UNAUTHORIZED,
+            StabuseError::InvalidCredentials(_) => actix_web::http::StatusCode::UNAUTHORIZED,
+            StabuseError::Forbidden(_) => actix_web::http::StatusCode::FORBIDDEN,
+            StabuseError::Unauthorized(_) => actix_web::http::StatusCode::UNAUTHORIZED,
         }
     }
 }
