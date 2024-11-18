@@ -1,13 +1,7 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::prelude::FromRow;
 use std::collections::HashMap;
-
-// #[derive(Debug, PartialEq, Clone, Copy)]
-// pub enum Actor {
-//     Admin,
-//     Merchant,
-// }
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Network {
@@ -97,5 +91,19 @@ pub struct MerchantCredentials {
 #[derive(Debug, Serialize, Deserialize, FromRow)]
 pub struct LoginCredentials {
     pub username_or_email: String,
+    pub password: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, FromRow)]
+pub struct AdminInvite {
+    pub email: String,
+    pub token: String,
+    pub expires_at: NaiveDateTime,
+}
+
+#[derive(Debug, Serialize, Deserialize, FromRow)]
+pub struct AdminDetails {
+    pub email: String,
+    pub username: String,
     pub password: String,
 }
