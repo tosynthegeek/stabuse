@@ -1,14 +1,21 @@
+use std::env;
+
+use bcrypt::verify;
 use chrono::{Duration, Utc};
 use sqlx::{PgPool, Row};
 use uuid::Uuid;
 
 use crate::{
+    auth::{
+        jwt::generate_admin_jwt,
+        otp::{send_otp, verify_otp, EmailConfig},
+    },
     db::migrations::admins::{
         insert_and_updates::{ADD_ADMIN, ADD_ADMIN_INVITE, ADD_SUPER_ADMIN, DELETE_ADMIN_INVITE},
-        select_queries::{GET_ADMIN_COUNT, GET_INVITE_DETAILS},
+        select_queries::{GET_ADMIN_COUNT, GET_INVITE_DETAILS, LOGIN_ATTEMPT},
     },
     error::StabuseError,
-    types::types::AdminInvite,
+    types::types::{AdminCredentials, AdminInvite},
     utils::utils::hash_password,
 };
 
@@ -104,4 +111,53 @@ pub async fn create_admin_with_invite(
         .map_err(|e| StabuseError::DatabaseError(e))?;
 
     Ok(id)
+}
+
+pub async fn admin_login_request(
+    pool: &PgPool,
+    username_or_email: &str,
+    password: &str,
+) -> Result<(String, String), StabuseError> {
+    let admin_credentials = sqlx::query_as::<_, AdminCredentials>(LOGIN_ATTEMPT)
+        .bind(username_or_email)
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| StabuseError::DatabaseError(e))?;
+
+    let admin_credentials = match admin_credentials {
+        Some(admin_credentials) => admin_credentials,
+        None => {
+            return Err(StabuseError::InvalidCredentials(format!(
+                "Admin doesnt exist"
+            )))
+        }
+    };
+
+    if !verify(password, &admin_credentials.password_hash)? {
+        return Err(StabuseError::InvalidCredentials(format!(
+            "Incorrect Password"
+        )));
+    }
+
+    let config = &EmailConfig::from_env()?;
+
+    send_otp(pool, &admin_credentials.email, config).await?;
+
+    Ok((admin_credentials.email, admin_credentials.username))
+}
+
+pub async fn verify_otp_and_login(
+    pool: &PgPool,
+    email: &str,
+    username: &str,
+    otp: &str,
+) -> Result<String, StabuseError> {
+    verify_otp(pool, email, otp).await?;
+
+    dotenv::dotenv().ok();
+    let jwt_secret = env::var("JWT_SECRET").expect("JWT_SECRET not set");
+
+    let jwt = generate_admin_jwt(email, username, &jwt_secret)?;
+
+    Ok(jwt)
 }

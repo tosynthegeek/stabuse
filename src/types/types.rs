@@ -48,6 +48,13 @@ pub struct CreateMerchantRequest {
 }
 
 #[derive(Deserialize)]
+pub struct CreateAdminRequest {
+    pub username: String,
+    pub email: String,
+    pub password: String,
+}
+
+#[derive(Deserialize)]
 pub struct MerchantAssetRequest {
     pub chain_id: i64,
     pub asset: String,
@@ -81,9 +88,25 @@ pub struct Claims {
     pub iat: i64, // issued at timestamp
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct AdminClaims {
+    pub sub: String,
+    pub username: String,
+    pub exp: i64, // expiration timestamp
+    pub iat: i64, // issued at timestamp
+}
+
 #[derive(Debug, Serialize, Deserialize, FromRow)]
 pub struct MerchantCredentials {
     pub id: i32,
+    pub username: String,
+    pub password_hash: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, FromRow)]
+pub struct AdminCredentials {
+    pub id: i32,
+    pub email: String,
     pub username: String,
     pub password_hash: String,
 }
@@ -106,4 +129,20 @@ pub struct AdminDetails {
     pub email: String,
     pub username: String,
     pub password: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, FromRow)]
+pub struct OTP {
+    pub otp_hash: String,
+    pub expires_at: NaiveDateTime,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct VerifyOtpRequest {
+    pub otp: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AdminInviteRequest {
+    pub email: String,
 }

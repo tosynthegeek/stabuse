@@ -1,6 +1,5 @@
 use crate::error::StabuseError;
 use bcrypt::{hash, DEFAULT_COST};
-
 use serde_json::{self, Value};
 use std::collections::HashMap;
 

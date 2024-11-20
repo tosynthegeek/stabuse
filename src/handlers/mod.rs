@@ -1,3 +1,4 @@
+pub mod admin_handlers;
 pub mod merchant_handlers;
 pub mod network_handler;
 

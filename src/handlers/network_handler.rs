@@ -1,4 +1,4 @@
-use actix_web::{web, HttpRequest, HttpResponse, Responder};
+use actix_web::{web, HttpMessage, HttpRequest, HttpResponse, Responder};
 use serde_json::json;
 use sqlx::PgPool;
 use tracing::error as TracingError;
@@ -8,17 +8,23 @@ use crate::{
         add_asset_to_network, add_network, get_all_networks, get_network,
         get_network_supported_assets,
     },
-    types::types::{AddAssetRequest, Network},
+    types::types::{AddAssetRequest, AdminClaims, Network},
 };
 
 pub async fn handle_add_network(
-    _req: HttpRequest,
+    req: HttpRequest,
     body: web::Json<Network>,
     pool: web::Data<PgPool>,
 ) -> impl Responder {
+    let claims = req
+        .extensions()
+        .get::<AdminClaims>()
+        .expect("Claims must be present in request")
+        .clone();
+    let username = &claims.username;
     let msg: Network = body.into_inner();
 
-    match add_network(&pool.into_inner(), msg).await {
+    match add_network(&pool.into_inner(), username, msg).await {
         Ok(_) => HttpResponse::Ok().body("Added network successfully"),
         Err(e) => {
             TracingError!(error = ?e,"Error adding network");
@@ -28,7 +34,6 @@ pub async fn handle_add_network(
 }
 
 pub async fn handle_get_network_supported_assets(
-    _req: HttpRequest,
     pool: web::Data<PgPool>,
     body: web::Json<i64>,
 ) -> impl Responder {
@@ -46,13 +51,19 @@ pub async fn handle_get_network_supported_assets(
 }
 
 pub async fn handle_add_asset(
-    _req: HttpRequest,
+    req: HttpRequest,
     pool: web::Data<PgPool>,
     body: web::Json<AddAssetRequest>,
 ) -> impl Responder {
+    let claims = req
+        .extensions()
+        .get::<AdminClaims>()
+        .expect("Claims must be present in request")
+        .clone();
+    let username = &claims.username;
     let data = body.into_inner();
 
-    match add_asset_to_network(&pool, data.chain_id, data.assets).await {
+    match add_asset_to_network(&pool, username, data.chain_id, data.assets).await {
         Ok(_) => HttpResponse::Ok().body("Asset added successfully"),
         Err(err) => {
             TracingError!(error = ?err, "Error adding asset");

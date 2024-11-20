@@ -22,7 +22,11 @@ use sqlx::{PgPool, Row};
 
 use types::types::Network;
 
-pub async fn add_network(pool: &PgPool, network: Network) -> Result<i32, StabuseError> {
+pub async fn add_network(
+    pool: &PgPool,
+    admin_username: &str,
+    network: Network,
+) -> Result<i32, StabuseError> {
     /* TODO
     - Limit to only admins
     */
@@ -36,6 +40,7 @@ pub async fn add_network(pool: &PgPool, network: Network) -> Result<i32, Stabuse
                 .bind(network.name)
                 .bind(network.rpc)
                 .bind(json_assets)
+                .bind(admin_username)
                 .fetch_one(pool)
                 .await?;
             Ok(id)
@@ -46,6 +51,7 @@ pub async fn add_network(pool: &PgPool, network: Network) -> Result<i32, Stabuse
 
 pub async fn add_asset_to_network(
     pool: &PgPool,
+    admin_username: &str,
     chain_id: i32,
     asset: HashMap<String, String>,
 ) -> Result<(), StabuseError> {
@@ -59,6 +65,7 @@ pub async fn add_asset_to_network(
                     .bind(key)
                     .bind(value)
                     .bind(chain_id)
+                    .bind(admin_username)
                     .execute(pool)
                     .await?;
             }

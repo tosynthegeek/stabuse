@@ -5,6 +5,9 @@ use sqlx::{postgres::PgPoolOptions, PgPool, Pool, Postgres};
 use crate::error::StabuseError;
 
 use super::migrations::{
+    admins::create_admins_table::{
+        CREATE_ADMINS_TABLE, CREATE_ADMIN_INVITES_TABLE, CREATE_OTP_TABLE,
+    },
     merchants::{
         create_merchants_table::CREATE_MERCHANT_TABLE, triggers::TRIGGER_FUNCTION_MERCHANTS,
     },
@@ -29,6 +32,11 @@ pub async fn init_db(pool: &PgPool) -> Result<(), StabuseError> {
     sqlx::query(CREATE_INDEX_DAI).execute(pool).await?;
     sqlx::query(CREATE_INDEX_USDC).execute(pool).await?;
     sqlx::query(CREATE_INDEX_BUSD).execute(pool).await?;
+    sqlx::query(CREATE_ADMINS_TABLE).execute(pool).await?;
+    sqlx::query(CREATE_ADMIN_INVITES_TABLE)
+        .execute(pool)
+        .await?;
+    sqlx::query(CREATE_OTP_TABLE).execute(pool).await?;
 
     Ok(())
 }

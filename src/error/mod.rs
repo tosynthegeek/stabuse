@@ -1,5 +1,9 @@
 use actix_web::{error::HttpError, HttpResponse, ResponseError};
-use std::fmt::{self};
+use lettre::{address::AddressError, transport::smtp::Error as SmtpTransportError};
+use std::{
+    env::VarError,
+    fmt::{self},
+};
 
 #[derive(Debug)]
 pub enum StabuseError {
@@ -14,6 +18,10 @@ pub enum StabuseError {
     HttpError(HttpError),
     Forbidden(String),
     Unauthorized(String),
+    // Internal(String),
+    EmailError(String),
+    SmtpError(String),
+    EnvError(String),
 }
 
 impl fmt::Display for StabuseError {
@@ -32,6 +40,10 @@ impl fmt::Display for StabuseError {
             StabuseError::HttpError(err) => write!(f, "Http Error: {}", err),
             StabuseError::Forbidden(msg) => write!(f, "Fobidden: {}", msg),
             StabuseError::Unauthorized(msg) => write!(f, "Unauthorized: {}", msg),
+            // StabuseError::Internal(msg) => write!(f, "Internal: {}", msg),
+            StabuseError::EmailError(msg) => write!(f, "Error sending mail: {}", msg),
+            StabuseError::SmtpError(msg) => write!(f, "Error sending mail: {}", msg),
+            StabuseError::EnvError(msg) => write!(f, "Error reading from env: {}", msg),
         }
     }
 }
@@ -51,6 +63,24 @@ impl From<bcrypt::BcryptError> for StabuseError {
 impl From<HttpError> for StabuseError {
     fn from(error: HttpError) -> Self {
         StabuseError::HttpError(error)
+    }
+}
+
+impl From<AddressError> for StabuseError {
+    fn from(error: AddressError) -> Self {
+        StabuseError::EmailError(error.to_string())
+    }
+}
+
+impl From<SmtpTransportError> for StabuseError {
+    fn from(error: SmtpTransportError) -> Self {
+        StabuseError::SmtpError(error.to_string())
+    }
+}
+
+impl From<VarError> for StabuseError {
+    fn from(error: VarError) -> Self {
+        StabuseError::EnvError(error.to_string())
     }
 }
 
@@ -98,6 +128,16 @@ impl ResponseError for StabuseError {
             StabuseError::Unauthorized(msg) => {
                 HttpResponse::Unauthorized().json(serde_json::json!({"error": msg}))
             }
+            // StabuseError::Internal(msg) => {
+            //     HttpResponse::InternalServerError().json(serde_json::json!({"error": msg}))
+            // }
+            StabuseError::EmailError(msg) => HttpResponse::InternalServerError()
+                .json(serde_json::json!({"error": msg.to_string()})),
+            StabuseError::SmtpError(msg) => HttpResponse::InternalServerError()
+                .json(serde_json::json!({"error": msg.to_string()})),
+            StabuseError::EnvError(msg) => {
+                HttpResponse::NotFound().json(serde_json::json!({"error": msg.to_string()}))
+            }
         }
     }
 
@@ -114,6 +154,10 @@ impl ResponseError for StabuseError {
             StabuseError::InvalidCredentials(_) => actix_web::http::StatusCode::UNAUTHORIZED,
             StabuseError::Forbidden(_) => actix_web::http::StatusCode::FORBIDDEN,
             StabuseError::Unauthorized(_) => actix_web::http::StatusCode::UNAUTHORIZED,
+            // StabuseError::Internal(_) => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+            StabuseError::EmailError(_) => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+            StabuseError::SmtpError(_) => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+            StabuseError::EnvError(_) => actix_web::http::StatusCode::NOT_FOUND,
         }
     }
 }
