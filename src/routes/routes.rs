@@ -1,6 +1,10 @@
 use crate::{
-    auth::auth::jwt_validator,
+    auth::jwt::{admin_jwt_validator, merchant_jwt_validator},
     handlers::{
+        admin_handlers::{
+            admin_login_handler, create_admin_with_invite_handler, create_super_admin_handler,
+            generate_admin_invite_handler, verify_otp_handler,
+        },
         handle_init_bd,
         merchant_handlers::{
             add_merchant_asset_handler, add_merchant_network_handler,
@@ -17,18 +21,24 @@ use actix_web::web;
 use actix_web_httpauth::middleware::HttpAuthentication;
 pub fn configure_public_routes(cfg: &mut web::ServiceConfig) {
     cfg.route("/initdb", web::post().to(handle_init_bd))
-        .route("/addnetwork", web::post().to(handle_add_network))
+        .route(
+            "/createsuperadmin",
+            web::post().to(create_super_admin_handler),
+        )
+        .route(
+            "/createadminwithinvite",
+            web::post().to(create_admin_with_invite_handler),
+        )
         .route(
             "/getassets",
             web::get().to(handle_get_network_supported_assets),
         )
-        .route("/addassets", web::post().to(handle_add_asset))
         .route("/getnetwork", web::get().to(handle_get_network))
         .route("/getallnetworks", web::get().to(handle_get_all_networks));
 }
 
 pub fn configure_merchant_api_routes(cfg: &mut web::ServiceConfig) {
-    let auth = HttpAuthentication::bearer(jwt_validator);
+    let auth = HttpAuthentication::bearer(merchant_jwt_validator);
 
     cfg.service(
         web::scope("/api")
@@ -59,6 +69,29 @@ pub fn configure_merchant_api_routes(cfg: &mut web::ServiceConfig) {
                         "/updateaddress",
                         web::post().to(update_merchant_network_address_handler),
                     ),
+            ),
+    );
+}
+
+pub fn configure_admin_routes(cfg: &mut web::ServiceConfig) {
+    let auth = HttpAuthentication::bearer(admin_jwt_validator);
+
+    cfg.service(
+        web::scope("/admin")
+            .service(
+                web::scope("/auth")
+                    .route("/login", web::post().to(admin_login_handler))
+                    .route("/otp/verify", web::post().to(verify_otp_handler)),
+            )
+            .service(
+                web::scope("")
+                    .wrap(auth)
+                    .route(
+                        "/createadmininvite",
+                        web::post().to(generate_admin_invite_handler),
+                    )
+                    .route("/addnetwork", web::post().to(handle_add_network))
+                    .route("/addasset", web::post().to(handle_add_asset)),
             ),
     );
 }

@@ -12,7 +12,9 @@ mod utils;
 use actix_web::{web, App, HttpServer};
 use db::db_init::connect_db;
 use env_logger::Env;
-use routes::routes::{configure_merchant_api_routes, configure_public_routes};
+use routes::routes::{
+    configure_admin_routes, configure_merchant_api_routes, configure_public_routes,
+};
 use tracing::info;
 
 #[actix_web::main]
@@ -28,6 +30,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(pool.clone())) //uses Arc
             .configure(configure_public_routes)
             .configure(configure_merchant_api_routes)
+            .configure(configure_admin_routes)
     })
     .bind(address)
     .unwrap()

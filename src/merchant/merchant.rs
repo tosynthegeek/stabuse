@@ -1,7 +1,7 @@
 use std::env;
 
 use crate::{
-    auth::auth::generate_jwt,
+    auth::jwt::generate_merchant_jwt,
     db::migrations::merchants::{
         insert_and_update_merchants::{
             ADD_ASSET_MERCHANT, ADD_MERCHANT, ADD_MERCHANT_SUPPORTED_NETWORK,
@@ -88,7 +88,7 @@ pub async fn merchant_login(
     dotenv::dotenv().ok();
     let jwt_secret = env::var("JWT_SECRET").expect("JWT_SECRET not set");
 
-    let token = generate_jwt(merchant.id, &merchant.username, jwt_secret)?;
+    let token = generate_merchant_jwt(merchant.id, &merchant.username, jwt_secret)?;
 
     Ok(LoginResponse {
         token,
