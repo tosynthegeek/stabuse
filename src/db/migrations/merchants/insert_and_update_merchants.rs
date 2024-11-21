@@ -8,21 +8,21 @@ pub const ADD_MERCHANT: &str = r#"
 pub const _UPDATE_MERCHANT_USERNAME: &str = r#"
     UPDATE merchants
     SET username = $2
-    WHERE username = $1
+    WHERE id = $1
     RETURNING id;
 "#;
 
 pub const _UPDATE_MERCHANT_EMAIL: &str = r#"
     UPDATE merchants
     SET email = $2
-    WHERE username = $1
+    WHERE id = $1
     RETURNING id;
 "#;
 
 pub const _UPDATE_MERCHANT_PASSWORD: &str = r#"
     UPDATE merchants
     SET password_hash = $2
-    WHERE username = $1
+    WHERE id = $1
     RETURNING id;
 "#;
 
@@ -62,7 +62,7 @@ pub const ADD_MERCHANT_SUPPORTED_NETWORK: &str = r#"
                     true
                 )
         END
-    WHERE username = $1
+    WHERE id = $1
     RETURNING supported_networks;
 "#;
 
@@ -82,7 +82,7 @@ pub const ADD_ASSET_MERCHANT: &str = r#"
         ),
         true
     )
-    WHERE username = $3
+    WHERE id = $3
     RETURNING supported_networks;
 "#;
 
@@ -98,7 +98,7 @@ pub const REMOVE_ASSET_MERCHANT: &str = r#"
         ),
         true
     )
-    WHERE username = $3
+    WHERE id = $3
     RETURNING supported_networks;
 "#;
 
@@ -110,6 +110,6 @@ pub const UPDATE_NETWORK_ADDRESS_MERCHANT: &str = r#"
         to_jsonb($2::text),
         true
     )
-    WHERE username = $3
+    WHERE id = $3
     RETURNING supported_networks;
 "#;

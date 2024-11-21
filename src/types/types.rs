@@ -146,3 +146,21 @@ pub struct VerifyOtpRequest {
 pub struct AdminInviteRequest {
     pub email: String,
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Stablecoins {
+    pub usdt: String,
+    pub usdc: String,
+    pub busd: String,
+    pub dai: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Payment {
+    pub sender: String,
+    pub amount: u64,
+    pub tx_hash: String,
+    pub asset: String,
+    pub network: String,
+    pub time: NaiveDateTime,
+}

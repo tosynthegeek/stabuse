@@ -13,7 +13,7 @@ pub const ADD_ASSET: &str = r#"
                 '{"$1": "$2"}'::jsonb
             ELSE
                 supported_assets || jsonb_build_object($1, $2)
-        END
-    last_updated_by = $4,
+        END,
+        last_updated_by = $4
     WHERE chain_id = $3;
 "#;
