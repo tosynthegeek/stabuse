@@ -54,9 +54,9 @@ pub async fn add_merchant_asset_handler(
         .expect("Claims must be present in request")
         .clone();
 
-    let username = &claims.username;
+    let id = claims.sub;
 
-    match add_new_merchant_network_asset(&pool, username, chain_id, &asset).await {
+    match add_new_merchant_network_asset(&pool, id, chain_id, &asset).await {
         Ok(networks) => HttpResponse::Created().json(serde_json::json!({
             "status": "success",
             "message": "Merchant asset added successfully",
@@ -84,9 +84,9 @@ pub async fn remove_merchant_asset_handler(
         .expect("Claims must be present in request")
         .clone();
 
-    let username = &claims.username;
+    let id = claims.sub;
 
-    match remove_merchant_network_asset(&pool, username, chain_id, &asset).await {
+    match remove_merchant_network_asset(&pool, id, chain_id, &asset).await {
         Ok(networks) => HttpResponse::Created().json(serde_json::json!({
             "status": "success",
             "message": "Merchant asset removed successfully",
@@ -119,11 +119,9 @@ pub async fn add_merchant_network_handler(
         .expect("Claims must be present in request")
         .clone();
 
-    let username = &claims.username;
+    let id = claims.sub;
 
-    match add_merchant_supported_network(&pool, username, chain_id, supported_assets, &address)
-        .await
-    {
+    match add_merchant_supported_network(&pool, id, chain_id, supported_assets, &address).await {
         Ok(networks) => HttpResponse::Created().json(serde_json::json!({
             "status": "success",
             "message": "Merchant networks updated successfully",
@@ -150,9 +148,9 @@ pub async fn update_merchant_network_address_handler(
         .get::<Claims>()
         .expect("Claims must be present in request")
         .clone();
-    let username = &claims.username;
+    let id = claims.sub;
 
-    match update_merchant_network_address(&pool, username, chain_id, &address).await {
+    match update_merchant_network_address(&pool, id, chain_id, &address).await {
         Ok(networks) => HttpResponse::Created().json(serde_json::json!({
             "status": "success",
             "message": "Merchant network address updated successfully",

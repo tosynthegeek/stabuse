@@ -99,7 +99,7 @@ pub async fn merchant_login(
 
 pub async fn add_new_merchant_network_asset(
     pool: &PgPool,
-    username: &str,
+    merchant_id: i32,
     chain_id: i64,
     asset_value: &str,
 ) -> Result<Value, StabuseError> {
@@ -113,7 +113,7 @@ pub async fn add_new_merchant_network_asset(
     let updated_networks: Value = sqlx::query_scalar(ADD_ASSET_MERCHANT)
         .bind(chain_id.to_string())
         .bind(asset)
-        .bind(username)
+        .bind(merchant_id)
         .fetch_one(pool)
         .await
         .map_err(|e| StabuseError::DatabaseError(e))?;
@@ -123,7 +123,7 @@ pub async fn add_new_merchant_network_asset(
 
 pub async fn remove_merchant_network_asset(
     pool: &PgPool,
-    username: &str,
+    merchant_id: i32,
     chain_id: i64,
     asset_value: &str,
 ) -> Result<Value, StabuseError> {
@@ -131,7 +131,7 @@ pub async fn remove_merchant_network_asset(
     let updated_networks: Value = sqlx::query_scalar(REMOVE_ASSET_MERCHANT)
         .bind(chain_id.to_string())
         .bind(asset)
-        .bind(username)
+        .bind(merchant_id)
         .fetch_one(pool)
         .await
         .map_err(|e| StabuseError::DatabaseError(e))?;
@@ -141,7 +141,7 @@ pub async fn remove_merchant_network_asset(
 
 pub async fn add_merchant_supported_network(
     pool: &PgPool,
-    username: &str,
+    merchant_id: i32,
     chain_id: i64,
     supported_assets: Vec<String>,
     address: &str,
@@ -150,7 +150,7 @@ pub async fn add_merchant_supported_network(
     validate_address(address)?;
 
     let networks = sqlx::query_scalar(ADD_MERCHANT_SUPPORTED_NETWORK)
-        .bind(username)
+        .bind(merchant_id)
         .bind(chain_id)
         .bind(supported_assets)
         .bind(address)
@@ -163,7 +163,7 @@ pub async fn add_merchant_supported_network(
 
 pub async fn update_merchant_network_address(
     pool: &PgPool,
-    username: &str,
+    merchant_id: i32,
     chain_id: i64,
     address: &str,
 ) -> Result<Value, StabuseError> {
@@ -171,7 +171,7 @@ pub async fn update_merchant_network_address(
     let updated_networks: Value = sqlx::query_scalar(UPDATE_NETWORK_ADDRESS_MERCHANT)
         .bind(chain_id)
         .bind(address)
-        .bind(username)
+        .bind(merchant_id)
         .fetch_one(pool)
         .await
         .map_err(|e| StabuseError::DatabaseError(e))?;
