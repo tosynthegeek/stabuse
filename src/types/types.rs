@@ -164,3 +164,11 @@ pub struct Payment {
     pub network: String,
     pub time: NaiveDateTime,
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TransactionBuildRequest {
+    pub merchant_id: i32,
+    pub payment_amount: U256,
+    pub user_address: Address,
+    pub rpc_url: String,
+}
