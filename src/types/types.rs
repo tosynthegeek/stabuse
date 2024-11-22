@@ -1,3 +1,4 @@
+use alloy::primitives::{Address, U256};
 use chrono::{DateTime, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::prelude::FromRow;
