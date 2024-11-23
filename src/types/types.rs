@@ -1,3 +1,4 @@
+use alloy::primitives::{Address, U256};
 use chrono::{DateTime, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::prelude::FromRow;
@@ -163,4 +164,12 @@ pub struct Payment {
     pub asset: String,
     pub network: String,
     pub time: NaiveDateTime,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TransactionBuildRequest {
+    pub merchant_id: i32,
+    pub payment_amount: U256,
+    pub user_address: Address,
+    pub rpc_url: String,
 }

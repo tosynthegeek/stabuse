@@ -1,0 +1,65 @@
+{
+    "1": {
+        "network": "Ethereum Mainnet",
+        "USDT": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+        "USDC": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+        "DAI": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+        "BUSD": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+    },
+    "56": {
+        "network": "BSC Mainnet",
+        "USDT": "0x55d398326f99059fF775485246999027B3197955",
+        "USDC": "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
+        "DAI": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+        "BUSD": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+    },
+    "84532": {
+        "network": "Base Sepolia Testnet",
+        "USDT": "0x55d398326f99059fF775485246999027B3197955",
+        "USDC": "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
+        "DAI": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+        "BUSD": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+    },
+    "11155111": {
+        "network": "Sepolia Testnet",
+        "USDT": "0x55d398326f99059fF775485246999027B3197955",
+        "USDC": "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
+        "DAI": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+        "BUSD": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+    },
+    "97": {
+        "network": "BSC Testnet",
+        "USDT": "0x55d398326f99059fF775485246999027B3197955",
+        "USDC": "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
+        "DAI": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+        "BUSD": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+    },
+    "8453": {
+        "network": "Base Mainnet",
+        "USDT": "0x55d398326f99059fF775485246999027B3197955",
+        "USDC": "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
+        "DAI": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+        "BUSD": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+    },
+    "137": {
+        "network": "Polygon Mainnet",
+        "USDT": "0x55d398326f99059fF775485246999027B3197955",
+        "USDC": "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
+        "DAI": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+        "BUSD": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+    },
+    "80002": {
+        "network": "Polygon Amoy Testnet",
+        "USDT": "0x55d398326f99059fF775485246999027B3197955",
+        "USDC": "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
+        "DAI": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+        "BUSD": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+    },
+    "solana": {
+        "network": "Ethereum Mainnet",
+        "USDT": "0x55d398326f99059fF775485246999027B3197955",
+        "USDC": "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
+        "DAI": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+        "BUSD": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+    }
+}
