@@ -1,8 +1,13 @@
 use actix_web::{error::HttpError, HttpResponse, ResponseError};
+use alloy::{
+    dyn_abi::parser,
+    transports::{RpcError, TransportErrorKind},
+};
 use lettre::{address::AddressError, transport::smtp::Error as SmtpTransportError};
 use std::{
     env::VarError,
     fmt::{self},
+    string::ParseError,
 };
 
 #[derive(Debug)]
@@ -12,13 +17,14 @@ pub enum StabuseError {
     DatabaseError(sqlx::Error),
     SerdeError(String),
     HashError(bcrypt::BcryptError),
+    StdError(Box<dyn std::error::Error + Send + Sync>),
     InvalidAssetFormat(String),
     AssetNotSupportedonNetwork(String),
     JWTError(String),
     HttpError(HttpError),
     Forbidden(String),
     Unauthorized(String),
-    // Internal(String),
+    Internal(String),
     EmailError(String),
     SmtpError(String),
     EnvError(String),
@@ -40,10 +46,11 @@ impl fmt::Display for StabuseError {
             StabuseError::HttpError(err) => write!(f, "Http Error: {}", err),
             StabuseError::Forbidden(msg) => write!(f, "Fobidden: {}", msg),
             StabuseError::Unauthorized(msg) => write!(f, "Unauthorized: {}", msg),
-            // StabuseError::Internal(msg) => write!(f, "Internal: {}", msg),
+            StabuseError::Internal(msg) => write!(f, "Internal: {}", msg),
             StabuseError::EmailError(msg) => write!(f, "Error sending mail: {}", msg),
             StabuseError::SmtpError(msg) => write!(f, "Error sending mail: {}", msg),
             StabuseError::EnvError(msg) => write!(f, "Error reading from env: {}", msg),
+            StabuseError::StdError(e) => write!(f, "{}", e),
         }
     }
 }
@@ -80,6 +87,36 @@ impl From<SmtpTransportError> for StabuseError {
 
 impl From<VarError> for StabuseError {
     fn from(error: VarError) -> Self {
+        StabuseError::EnvError(error.to_string())
+    }
+}
+
+impl From<RpcError<TransportErrorKind>> for StabuseError {
+    fn from(err: RpcError<TransportErrorKind>) -> Self {
+        StabuseError::Internal(err.to_string())
+    }
+}
+
+impl From<parser::Error> for StabuseError {
+    fn from(error: parser::Error) -> Self {
+        StabuseError::Internal(error.to_string())
+    }
+}
+
+impl From<std::io::Error> for StabuseError {
+    fn from(error: std::io::Error) -> Self {
+        StabuseError::StdError(Box::new(error))
+    }
+}
+
+impl From<serde_json::Error> for StabuseError {
+    fn from(error: serde_json::Error) -> Self {
+        StabuseError::SerdeError(error.to_string())
+    }
+}
+
+impl From<Box<dyn std::error::Error + Send + Sync>> for StabuseError {
+    fn from(error: Box<dyn std::error::Error + Send + Sync>) -> Self {
         StabuseError::EnvError(error.to_string())
     }
 }
@@ -128,14 +165,16 @@ impl ResponseError for StabuseError {
             StabuseError::Unauthorized(msg) => {
                 HttpResponse::Unauthorized().json(serde_json::json!({"error": msg}))
             }
-            // StabuseError::Internal(msg) => {
-            //     HttpResponse::InternalServerError().json(serde_json::json!({"error": msg}))
-            // }
+            StabuseError::StdError(msg) => HttpResponse::InternalServerError()
+                .json(serde_json::json!({"error": msg.to_string()})),
             StabuseError::EmailError(msg) => HttpResponse::InternalServerError()
                 .json(serde_json::json!({"error": msg.to_string()})),
             StabuseError::SmtpError(msg) => HttpResponse::InternalServerError()
                 .json(serde_json::json!({"error": msg.to_string()})),
             StabuseError::EnvError(msg) => {
+                HttpResponse::NotFound().json(serde_json::json!({"error": msg.to_string()}))
+            }
+            StabuseError::Internal(msg) => {
                 HttpResponse::NotFound().json(serde_json::json!({"error": msg.to_string()}))
             }
         }
@@ -154,10 +193,11 @@ impl ResponseError for StabuseError {
             StabuseError::InvalidCredentials(_) => actix_web::http::StatusCode::UNAUTHORIZED,
             StabuseError::Forbidden(_) => actix_web::http::StatusCode::FORBIDDEN,
             StabuseError::Unauthorized(_) => actix_web::http::StatusCode::UNAUTHORIZED,
-            // StabuseError::Internal(_) => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
+            StabuseError::StdError(_) => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
             StabuseError::EmailError(_) => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
             StabuseError::SmtpError(_) => actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
             StabuseError::EnvError(_) => actix_web::http::StatusCode::NOT_FOUND,
+            StabuseError::Internal(_) => actix_web::http::StatusCode::NOT_FOUND,
         }
     }
 }

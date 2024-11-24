@@ -7,7 +7,7 @@ use crate::{
             ADD_ASSET_MERCHANT, ADD_MERCHANT, ADD_MERCHANT_SUPPORTED_NETWORK,
             REMOVE_ASSET_MERCHANT, UPDATE_NETWORK_ADDRESS_MERCHANT,
         },
-        select_queries::LOGIN_ATTEMPT,
+        select_queries::{GET_MERCHANT_NETWORK_ADDRESS, LOGIN_ATTEMPT},
     },
     error::StabuseError,
     network::network::is_asset_supported_on_network,
@@ -23,7 +23,7 @@ use crate::{
 };
 use bcrypt::verify;
 use serde_json::{json, Value};
-use sqlx::PgPool;
+use sqlx::{PgPool, Row};
 
 pub async fn create_merchant_account(
     pool: &PgPool,
@@ -177,4 +177,21 @@ pub async fn update_merchant_network_address(
         .map_err(|e| StabuseError::DatabaseError(e))?;
 
     Ok(updated_networks)
+}
+
+pub async fn get_merchant_network_address(
+    pool: &PgPool,
+    merchant_id: i32,
+    chain_id: i64,
+) -> Result<String, StabuseError> {
+    let query = sqlx::query(GET_MERCHANT_NETWORK_ADDRESS)
+        .bind(merchant_id)
+        .bind(chain_id)
+        .fetch_one(pool)
+        .await
+        .map_err(|e| StabuseError::DatabaseError(e))?;
+
+    let address: String = query.get("address");
+
+    Ok(address)
 }

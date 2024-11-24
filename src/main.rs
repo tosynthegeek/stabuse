@@ -1,5 +1,6 @@
 mod admin;
 mod auth;
+mod core;
 mod db;
 mod error;
 mod handlers;

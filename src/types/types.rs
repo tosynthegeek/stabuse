@@ -169,7 +169,23 @@ pub struct Payment {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TransactionBuildRequest {
     pub merchant_id: i32,
-    pub payment_amount: U256,
-    pub user_address: Address,
+    pub payment_amount: u64,
+    pub user_address: String,
     pub rpc_url: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CreatePaymentTransaction {
+    pub to: String,
+    pub from: String,
+    pub data: String,
+    pub value: String,
+    pub nonce: String,
+    pub chain_id: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub gas_limit: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_fee_per_gas: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_priority_fee_per_gas: Option<String>,
 }
