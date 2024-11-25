@@ -10,3 +10,10 @@ pub const GET_MERCHANT: &str = r#"
     FROM merchants
     WHERE id = $1
 "#;
+
+pub const GET_MERCHANT_NETWORK_ADDRESS: &str = r#"
+    SELECT 
+        supported_networks -> $2::text ->> 'address' AS address
+    FROM merchants
+    WHERE id = $1;
+"#;
