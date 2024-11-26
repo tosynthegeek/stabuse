@@ -7,7 +7,6 @@ use lettre::{address::AddressError, transport::smtp::Error as SmtpTransportError
 use std::{
     env::VarError,
     fmt::{self},
-    string::ParseError,
 };
 
 #[derive(Debug)]

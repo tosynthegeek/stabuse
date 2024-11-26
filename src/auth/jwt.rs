@@ -8,7 +8,7 @@ use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation}
 
 use crate::{
     error::StabuseError,
-    types::types::{AdminClaims, Claims},
+    types::types::{AdminClaims, Claims, PaymentClaims},
 };
 
 pub fn generate_merchant_jwt(
@@ -128,6 +128,69 @@ pub async fn admin_jwt_validator(
 
     let token = credentials.token();
     match verify_admin_jwt(token, jwt_secret).await {
+        Ok(claims) => {
+            req.extensions_mut().insert(claims);
+            Ok(req)
+        }
+        Err(e) => {
+            eprintln!("Token validation failed: {:?}", e);
+
+            let config = req
+                .app_data::<Config>()
+                .map(|data| data.clone())
+                .unwrap_or_else(Default::default);
+
+            let auth_error = AuthenticationError::from(config).into();
+            Err((auth_error, req))
+        }
+    }
+}
+
+pub fn generate_payment_jwt(pending_payment_id: i32, secret: &str) -> Result<String, StabuseError> {
+    let expiration = Utc::now()
+        .checked_add_signed(Duration::minutes(30))
+        .expect("valid timestamp")
+        .timestamp();
+    let claims = PaymentClaims {
+        pending_payment_id: pending_payment_id,
+        exp: expiration,
+        iat: Utc::now().timestamp(),
+    };
+
+    let token = encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(secret.as_ref()),
+    )
+    .map_err(|e| StabuseError::JWTError(format!("Failed to generate JWT: {}", e)))?;
+
+    Ok(token)
+}
+
+pub async fn verify_pending_payment_jwt(
+    token: &str,
+    jwt_secret: String,
+) -> Result<PaymentClaims, actix_web::Error> {
+    decode::<PaymentClaims>(
+        token,
+        &DecodingKey::from_secret(jwt_secret.as_bytes()),
+        &Validation::default(),
+    )
+    .map(|token_data| token_data.claims)
+    .map_err(|e| {
+        let error_message = format!("Invalid token: {}", e);
+        actix_web::error::ErrorUnauthorized(error_message)
+    })
+}
+
+pub async fn pending_payment_jwt_validator(
+    req: ServiceRequest,
+    credentials: BearerAuth,
+) -> Result<ServiceRequest, (actix_web::Error, ServiceRequest)> {
+    let jwt_secret = std::env::var("JWT_SECRET").expect("JWT_SECRET must be set");
+
+    let token = credentials.token();
+    match verify_pending_payment_jwt(token, jwt_secret).await {
         Ok(claims) => {
             req.extensions_mut().insert(claims);
             Ok(req)

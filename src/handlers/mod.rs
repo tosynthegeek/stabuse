@@ -1,6 +1,7 @@
 pub mod admin_handlers;
 pub mod merchant_handlers;
 pub mod network_handler;
+pub mod payment_handlers;
 
 use crate::db::db_init::init_db;
 use actix_web::{web, HttpRequest, HttpResponse, Responder};

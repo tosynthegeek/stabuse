@@ -14,7 +14,8 @@ use actix_web::{web, App, HttpServer};
 use db::db_init::connect_db;
 use env_logger::Env;
 use routes::routes::{
-    configure_admin_routes, configure_merchant_api_routes, configure_public_routes,
+    configure_admin_routes, configure_merchant_api_routes, configure_payment_routes,
+    configure_public_routes,
 };
 use tracing::info;
 
@@ -32,6 +33,7 @@ async fn main() -> std::io::Result<()> {
             .configure(configure_public_routes)
             .configure(configure_merchant_api_routes)
             .configure(configure_admin_routes)
+            .configure(configure_payment_routes)
     })
     .bind(address)
     .unwrap()
