@@ -18,11 +18,19 @@ use super::migrations::{
         create_networks_table::CREATE_NETWORK_TABLE,
         triggers_and_functions::{TRIGGER, TRIGGER_FUNCTION},
     },
+    payments::{
+        create_indexes::{CREATE_INDEX_MERCHANT_ID, CREATE_INDEX_NETWORK, CREATE_INDEX_TX_HASH},
+        create_payments_table::{CREATE_PAYMENTS_TABLE, CREATE_PENDING_PAYMENTS_TABLE},
+    },
 };
 
 pub async fn init_db(pool: &PgPool) -> Result<(), StabuseError> {
     sqlx::query(CREATE_NETWORK_TABLE).execute(pool).await?;
     sqlx::query(CREATE_MERCHANT_TABLE).execute(pool).await?;
+    sqlx::query(CREATE_PAYMENTS_TABLE).execute(pool).await?;
+    sqlx::query(CREATE_PENDING_PAYMENTS_TABLE)
+        .execute(pool)
+        .await?;
     sqlx::query(TRIGGER).execute(pool).await?;
     sqlx::query(TRIGGER_FUNCTION).execute(pool).await?;
     sqlx::query(TRIGGER_FUNCTION_MERCHANTS)
@@ -32,6 +40,9 @@ pub async fn init_db(pool: &PgPool) -> Result<(), StabuseError> {
     sqlx::query(CREATE_INDEX_DAI).execute(pool).await?;
     sqlx::query(CREATE_INDEX_USDC).execute(pool).await?;
     sqlx::query(CREATE_INDEX_BUSD).execute(pool).await?;
+    sqlx::query(CREATE_INDEX_MERCHANT_ID).execute(pool).await?;
+    sqlx::query(CREATE_INDEX_NETWORK).execute(pool).await?;
+    sqlx::query(CREATE_INDEX_TX_HASH).execute(pool).await?;
     sqlx::query(CREATE_ADMINS_TABLE).execute(pool).await?;
     sqlx::query(CREATE_ADMIN_INVITES_TABLE)
         .execute(pool)

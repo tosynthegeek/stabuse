@@ -1,4 +1,5 @@
 use alloy::primitives::{Address, U256};
+use bigdecimal::BigDecimal;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::prelude::FromRow;
@@ -97,6 +98,13 @@ pub struct AdminClaims {
     pub iat: i64, // issued at timestamp
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct PaymentClaims {
+    pub pending_payment_id: i32,
+    pub exp: i64, // expiration timestamp
+    pub iat: i64, // issued at timestamp
+}
+
 #[derive(Debug, Serialize, Deserialize, FromRow)]
 pub struct MerchantCredentials {
     pub id: i32,
@@ -167,10 +175,17 @@ pub struct Payment {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct TransactionBuildRequest {
+pub struct CreateEVMPaymentRequest {
     pub merchant_id: i32,
     pub payment_amount: u64,
     pub user_address: String,
+    pub asset: String,
+    pub rpc_url: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ValidateEVMPaymentRequest {
+    pub tx_hash: String,
     pub rpc_url: String,
 }
 
@@ -188,4 +203,23 @@ pub struct CreatePaymentTransaction {
     pub max_fee_per_gas: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_priority_fee_per_gas: Option<String>,
+}
+
+#[derive(Debug)]
+pub struct TransactionValidationParams {
+    pub merchant_address: Address,
+    pub token_address: Address,
+    pub user_address: Address,
+    pub amount: U256,
+}
+
+#[derive(Debug, Serialize, Deserialize, FromRow)]
+pub struct PendingPayment {
+    pub id: i32,
+    pub merchant_id: i32,
+    pub sender: String,
+    pub amount: BigDecimal,
+    pub asset: String,
+    pub network: String,
+    pub time: NaiveDateTime,
 }

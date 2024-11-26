@@ -1,5 +1,4 @@
 use crate::error::StabuseError;
-use alloy::{hex, primitives::U256};
 use bcrypt::{hash, DEFAULT_COST};
 use serde_json::{self, Value};
 use std::{collections::HashMap, fs};
@@ -26,20 +25,40 @@ pub fn hash_password(password: &str) -> Result<String, StabuseError> {
     Ok(password_hash)
 }
 
-pub fn get_asset_contract_address(asset: &str, chain_id: u64) -> Result<String, StabuseError> {
+pub fn get_network_and_asset_address(
+    asset: &str,
+    chain_id: u64,
+) -> Result<(String, String), StabuseError> {
     let data = fs::read_to_string("config/assets.json")?;
 
     let assets: Value = serde_json::from_str(&data)?;
 
-    if let Some(address) = assets[chain_id.to_string()]
-        .get(asset)
-        .and_then(|v| v.as_str())
-    {
-        Ok(address.to_string())
+    if let Some(network_data) = assets.get(chain_id.to_string()) {
+        let network_name = network_data
+            .get("network")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| {
+                StabuseError::AssetNotSupportedonNetwork(format!(
+                    "Network name not found for chain ID {}",
+                    chain_id
+                ))
+            })?;
+
+        let asset_address = network_data
+            .get(asset)
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| {
+                StabuseError::AssetNotSupportedonNetwork(format!(
+                    "Asset {} not found on network {}",
+                    asset, chain_id
+                ))
+            })?;
+
+        Ok((network_name.to_string(), asset_address.to_string()))
     } else {
         Err(StabuseError::AssetNotSupportedonNetwork(format!(
-            "Asset {} not found on network {}",
-            asset, chain_id
+            "Chain ID {} not found in configuration",
+            chain_id
         )))
     }
 }

@@ -5,7 +5,7 @@ pub const LOGIN_ATTEMPT: &str = r#"
        OR email = $1
 "#;
 
-pub const GET_MERCHANT: &str = r#"
+pub const _GET_MERCHANT: &str = r#"
     SELECT username, supported_networks 
     FROM merchants
     WHERE id = $1
