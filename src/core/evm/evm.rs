@@ -7,6 +7,7 @@ use alloy::{
     rpc::types::{TransactionInput, TransactionReceipt, TransactionRequest},
 };
 use alloy_sol_types::{sol, SolCall};
+use bigdecimal::ToPrimitive;
 use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, Row};
 use std::{env, str::FromStr};
@@ -21,7 +22,8 @@ use crate::{
     merchant::merchant::get_merchant_network_address,
     types::types::{CreatePaymentTransaction, PendingPayment, TransactionValidationParams},
     utils::{
-        utils::get_network_and_asset_address, validation::address_validation::validate_address,
+        utils::{get_network_and_asset_address, get_token_decimals},
+        validation::address_validation::validate_address,
     },
 };
 
@@ -147,25 +149,6 @@ pub async fn verify_signed_transaction(
         .map_err(|e| StabuseError::DatabaseError(e))?;
     let (network, token_address) = get_network_and_asset_address(&pending_payment.asset, chain_id)?;
 
-    let validation_params = TransactionValidationParams {
-        merchant_address: get_merchant_network_address(
-            pool,
-            pending_payment.merchant_id,
-            chain_id.try_into().unwrap(),
-        )
-        .await?
-        .parse()
-        .map_err(|e| StabuseError::Internal(format!("Invalid merchant address: {}", e)))?,
-        token_address: token_address
-            .parse()
-            .map_err(|e| StabuseError::Internal(format!("Invalid token address: {}", e)))?,
-        user_address: Address::from_str(&pending_payment.sender)
-            .map_err(|e| StabuseError::Internal(format!("Invalid user address: {}", e)))?,
-        amount: U256::from_str(&pending_payment.amount.to_string()).map_err(|e| {
-            StabuseError::Internal(format!("Failed to parse BigDecimal to U256: {}", e))
-        })?,
-    };
-
     let tx_hash_bytes = hex::decode(tx_hash.trim_start_matches("0x"))
         .map_err(|_| StabuseError::InvalidData("Invalid transaction hash".to_string()))?;
 
@@ -202,6 +185,13 @@ pub async fn verify_signed_transaction(
         tokio::time::sleep(std::time::Duration::from_secs(5)).await;
     }
 
+    let decimal = get_token_decimals(&pending_payment.asset)?;
+    let amount = pending_payment
+        .amount
+        .to_f64()
+        .ok_or_else(|| StabuseError::Internal("Invalid amount".to_string()))?;
+    let converted_amount = (amount * 10f64.powi(decimal as i32)) as u128;
+
     let tx = provider
         .get_transaction_by_hash(tx_hash_fixed)
         .await?
@@ -219,9 +209,7 @@ pub async fn verify_signed_transaction(
     let expected_data = IERC20::transferCall {
         to: Address::from_str(&merchant_address)
             .map_err(|e| StabuseError::Internal(format!("Invalid merchant address: {}", e)))?,
-        value: U256::from_str(&pending_payment.amount.to_string()).map_err(|e| {
-            StabuseError::Internal(format!("Failed to parse BigDecimal to U256: {}", e))
-        })?,
+        value: U256::from(converted_amount),
     }
     .abi_encode();
 
@@ -244,6 +232,7 @@ pub async fn verify_signed_transaction(
     }
 
     let tx_data = tx_inner.input();
+
     if tx_data.to_vec() != expected_data {
         return Err(StabuseError::InvalidData(
             "Transaction data does not match the expected data.".to_string(),
@@ -255,6 +244,23 @@ pub async fn verify_signed_transaction(
             "Transaction execution failed.".to_string(),
         ));
     }
+
+    let validation_params = TransactionValidationParams {
+        merchant_address: get_merchant_network_address(
+            pool,
+            pending_payment.merchant_id,
+            chain_id.try_into().unwrap(),
+        )
+        .await?
+        .parse()
+        .map_err(|e| StabuseError::Internal(format!("Invalid merchant address: {}", e)))?,
+        token_address: token_address
+            .parse()
+            .map_err(|e| StabuseError::Internal(format!("Invalid token address: {}", e)))?,
+        user_address: Address::from_str(&pending_payment.sender)
+            .map_err(|e| StabuseError::Internal(format!("Invalid user address: {}", e)))?,
+        amount: U256::from(converted_amount),
+    };
 
     validate_transfer_event(&receipt, &validation_params)?;
 
@@ -303,12 +309,12 @@ fn validate_transfer_event(
                 .inner
                 .topics()
                 .get(1)
-                .and_then(|topic| Some(Address::from_slice(&topic.0)));
+                .and_then(|topic| Some(Address::from_slice(&topic.0[12..])));
             let to = log
                 .inner
                 .topics()
                 .get(2)
-                .and_then(|topic| Some(Address::from_slice(&topic.0)));
+                .and_then(|topic| Some(Address::from_slice(&topic.0[12..])));
 
             if from != Some(params.user_address) || to != Some(params.merchant_address) {
                 return None;
@@ -318,6 +324,8 @@ fn validate_transfer_event(
         })
         .sum();
 
+    println!("total amount: {}", total_transfer_amount);
+    println!("expected amount: {}", params.amount);
     if total_transfer_amount != params.amount {
         return Err(StabuseError::InvalidData(
             "Total transfer amount does not match expected amount".to_string(),

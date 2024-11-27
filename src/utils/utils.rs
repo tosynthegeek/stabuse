@@ -5,6 +5,7 @@ use std::{collections::HashMap, fs};
 
 pub const MIN_PASSWORD_LENGTH: usize = 8;
 pub const MIN_USERNAME_LENGTH: usize = 3;
+const TOKEN_DECIMALS: &[(&str, u32)] = &[("USDC", 6), ("DAI", 18), ("USDT", 6), ("BUSD", 18)];
 
 pub fn transform_assets_to_uppercase(assets: &HashMap<String, String>) -> HashMap<String, String> {
     assets
@@ -61,4 +62,12 @@ pub fn get_network_and_asset_address(
             chain_id
         )))
     }
+}
+
+pub fn get_token_decimals(asset: &str) -> Result<u32, StabuseError> {
+    TOKEN_DECIMALS
+        .iter()
+        .find(|(token, _)| *token == asset)
+        .map(|(_, decimals)| *decimals)
+        .ok_or_else(|| StabuseError::InvalidData(format!("Unsupported token: {}", asset)))
 }
