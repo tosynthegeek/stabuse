@@ -4,13 +4,14 @@ use crate::{
     db::migrations::networks::{
         insert_and_update_networks::{ADD_ASSET, ADD_NETWORK},
         select_queries::{
-            CHECK_NETWORK_SUPPORTED_ASSET, GET_ALL_NETWORKS, GET_NETWORK, GET_NETWORK_ASSETS,
+            CHECK_NETWORK_SUPPORTED_ASSET, GET_ALL_NETWORKS, GET_NETWORK, GET_NETWORK_AND_ASSETS,
+            GET_NETWORK_ASSETS,
         },
     },
     error::StabuseError,
     types::{
         self,
-        types::{Asset, NetworkDB},
+        types::{Asset, NetworkDB, NetworkInfo},
     },
     utils::{
         utils::{hashmap_to_json_value, transform_assets_to_uppercase},
@@ -180,4 +181,35 @@ pub async fn is_asset_supported_on_network(
         .await?;
 
     Ok(exists.0)
+}
+
+pub async fn get_network_and_asset_address_with_chain_id(
+    pool: &PgPool,
+    asset: &str,
+    chain_id: u64,
+) -> Result<(String, String), StabuseError> {
+    let network_info = sqlx::query_as::<_, NetworkInfo>(GET_NETWORK_AND_ASSETS)
+        .bind(chain_id as i64)
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| StabuseError::DatabaseError(e))?
+        .ok_or_else(|| {
+            StabuseError::AssetNotSupportedonNetwork(format!(
+                "Chain ID {} not found in networks",
+                chain_id
+            ))
+        })?;
+
+    let asset_address = network_info
+        .supported_assets
+        .get(asset)
+        .and_then(Value::as_str)
+        .ok_or_else(|| {
+            StabuseError::AssetNotSupportedonNetwork(format!(
+                "Asset {} not found on network {}",
+                asset, chain_id
+            ))
+        })?;
+
+    Ok((network_info.name, asset_address.to_string()))
 }

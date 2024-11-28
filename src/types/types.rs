@@ -2,6 +2,7 @@ use alloy::primitives::{Address, U256};
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use sqlx::prelude::FromRow;
 use std::collections::HashMap;
 
@@ -12,6 +13,12 @@ pub struct Network {
     pub explorer: String,
     pub rpc: String,
     pub supported_assets: HashMap<String, String>,
+}
+
+#[derive(Debug, Deserialize, Serialize, FromRow)]
+pub struct NetworkInfo {
+    pub name: String,
+    pub supported_assets: Value,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
