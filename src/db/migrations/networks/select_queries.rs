@@ -20,3 +20,9 @@ pub const CHECK_NETWORK_SUPPORTED_ASSET: &str = r#"
           AND supported_assets ? $2
     )
 "#;
+
+pub const GET_NETWORK_AND_ASSETS: &str = r#"
+    SELECT name, supported_assets
+    FROM networks
+    WHERE chain_id = $1
+"#;

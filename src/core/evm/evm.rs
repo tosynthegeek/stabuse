@@ -20,11 +20,9 @@ use crate::{
     },
     error::StabuseError,
     merchant::merchant::get_merchant_network_address,
+    network::network::get_network_and_asset_address_with_chain_id,
     types::types::{CreatePaymentTransaction, PendingPayment, TransactionValidationParams},
-    utils::{
-        utils::{get_network_and_asset_address, get_token_decimals},
-        validation::address_validation::validate_address,
-    },
+    utils::{utils::get_token_decimals, validation::address_validation::validate_address},
 };
 
 const REQUIRED_CONFIRMATIONS: u64 = 12;
@@ -55,7 +53,8 @@ pub async fn create_payment_request(
 
     let merchant_address =
         get_merchant_network_address(pool, merchant_id, chain_id.try_into().unwrap()).await?;
-    let (network, token_address) = get_network_and_asset_address(asset, chain_id)?;
+    let (network, token_address) =
+        get_network_and_asset_address_with_chain_id(pool, asset, chain_id).await?;
     let from_address = Address::from_str(user_address)
         .map_err(|e| StabuseError::Internal(format!("Invalid user address: {}", e)))?;
     let to_address = Address::from_str(&merchant_address)
@@ -147,7 +146,8 @@ pub async fn verify_signed_transaction(
         .fetch_one(pool)
         .await
         .map_err(|e| StabuseError::DatabaseError(e))?;
-    let (network, token_address) = get_network_and_asset_address(&pending_payment.asset, chain_id)?;
+    let (network, token_address) =
+        get_network_and_asset_address_with_chain_id(pool, &pending_payment.asset, chain_id).await?;
 
     let tx_hash_bytes = hex::decode(tx_hash.trim_start_matches("0x"))
         .map_err(|_| StabuseError::InvalidData("Invalid transaction hash".to_string()))?;
