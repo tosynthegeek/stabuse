@@ -33,3 +33,23 @@ pub fn get_token_decimals(asset: &str) -> Result<u32, StabuseError> {
         .map(|(_, decimals)| *decimals)
         .ok_or_else(|| StabuseError::InvalidData(format!("Unsupported token: {}", asset)))
 }
+
+pub fn get_solana_network_identifier(rpc_url: &str) -> Result<i64, StabuseError> {
+    match rpc_url {
+        url if url.contains("mainnet") => {
+            return Ok(101);
+        }
+        url if url.contains("devnet") => {
+            return Ok(102);
+        }
+        url if url.contains("testnet") => {
+            return Ok(103);
+        }
+        _ => {
+            return Err(StabuseError::InvalidData(format!(
+                "RPC URL {} not recognized",
+                rpc_url
+            )));
+        }
+    };
+}
