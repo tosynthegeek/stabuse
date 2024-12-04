@@ -27,8 +27,11 @@ alloy-provider = "0.6.4"
 bigdecimal = {version = "0.4.6", features = ["serde"]}
 solana-client = "2.1.4"
 solana-sdk = "2.1.4"
+<<<<<<< HEAD
+=======
 spl-token = "7.0.0"
 spl-associated-token-account = "6.0.0"
+>>>>>>> origin/stabuse-checks
 
 [dependencies.idna]
 version = "=1.0.2"
