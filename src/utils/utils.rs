@@ -5,7 +5,7 @@ use std::collections::HashMap;
 
 pub const MIN_PASSWORD_LENGTH: usize = 8;
 pub const MIN_USERNAME_LENGTH: usize = 3;
-const TOKEN_DECIMALS: &[(&str, u32)] = &[("USDC", 6), ("DAI", 18), ("USDT", 6), ("BUSD", 18)];
+const TOKEN_DECIMALS: &[(&str, u8)] = &[("USDC", 6), ("DAI", 18), ("USDT", 6), ("BUSD", 18)];
 
 pub fn transform_assets_to_uppercase(assets: &HashMap<String, String>) -> HashMap<String, String> {
     assets
@@ -26,7 +26,7 @@ pub fn hash_password(password: &str) -> Result<String, StabuseError> {
     Ok(password_hash)
 }
 
-pub fn get_token_decimals(asset: &str) -> Result<u32, StabuseError> {
+pub fn get_token_decimals(asset: &str) -> Result<u8, StabuseError> {
     TOKEN_DECIMALS
         .iter()
         .find(|(token, _)| *token == asset)
