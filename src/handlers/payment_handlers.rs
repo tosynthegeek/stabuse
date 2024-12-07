@@ -4,37 +4,66 @@ use sqlx::PgPool;
 use tracing::error as TracingError;
 
 use crate::{
-    core::evm::evm::{create_payment_request, verify_signed_transaction},
+    core::{
+        evm::evm::{create_payment_request, verify_signed_transaction},
+        sol::sol::{create_payment_transaction, verify_sol_signed_transaction},
+    },
     error::StabuseError,
-    types::types::{CreateEVMPaymentRequest, PaymentClaims, ValidateEVMPaymentRequest},
+    types::types::{CreatePaymentRequest, PaymentClaims, ValidatePaymentRequest},
 };
 
-pub async fn evm_create_payment_request_handler(
+pub async fn create_payment_request_handler(
     pool: web::Data<PgPool>,
-    body: web::Json<CreateEVMPaymentRequest>,
+    body: web::Json<CreatePaymentRequest>,
 ) -> Result<HttpResponse, StabuseError> {
     let data = body.into_inner();
-    match create_payment_request(
-        &pool,
-        data.merchant_id,
-        data.payment_amount,
-        &data.user_address,
-        &data.rpc_url,
-        &data.asset,
-    )
-    .await
-    {
-        Ok((tx, token)) => Ok(HttpResponse::Ok().json(serde_json::json!({
-            "status": "success",
-            "message": "Payment creation Successful",
-            "transaction": tx,
-            "token": token
-        }))),
-        Err(e) => {
-            TracingError!(error = ?e, "Payment creation error");
-            Ok(HttpResponse::Unauthorized().json(json!({
-                "error": "Invalid credentials"
-            })))
+    if data.network.to_lowercase().contains("sol") {
+        match create_payment_transaction(
+            &pool,
+            &data.rpc_url,
+            &data.user_address,
+            data.merchant_id,
+            &data.asset,
+            data.payment_amount,
+        )
+        .await
+        {
+            Ok((tx, token)) => Ok(HttpResponse::Ok().json(serde_json::json!({
+                "status": "success",
+                "message": "Payment creation Successful",
+                "transaction": tx,
+                "token": token
+            }))),
+            Err(e) => {
+                TracingError!(error = ?e, "Payment creation error");
+                Ok(HttpResponse::Unauthorized().json(json!({
+                    "error": "Invalid credentials"
+                })))
+            }
+        }
+    } else {
+        match create_payment_request(
+            &pool,
+            data.merchant_id,
+            data.payment_amount,
+            &data.user_address,
+            &data.rpc_url,
+            &data.asset,
+        )
+        .await
+        {
+            Ok((tx, token)) => Ok(HttpResponse::Ok().json(serde_json::json!({
+                "status": "success",
+                "message": "Payment creation Successful",
+                "transaction": tx,
+                "token": token
+            }))),
+            Err(e) => {
+                TracingError!(error = ?e, "Payment creation error");
+                Ok(HttpResponse::Unauthorized().json(json!({
+                    "error": "Invalid credentials"
+                })))
+            }
         }
     }
 }
@@ -42,7 +71,7 @@ pub async fn evm_create_payment_request_handler(
 pub async fn validate_evm_payment_handler(
     req: HttpRequest,
     pool: web::Data<PgPool>,
-    body: web::Json<ValidateEVMPaymentRequest>,
+    body: web::Json<ValidatePaymentRequest>,
 ) -> Result<HttpResponse, StabuseError> {
     let data = body.into_inner();
     let claims = req
@@ -51,24 +80,47 @@ pub async fn validate_evm_payment_handler(
         .expect("Claims must be present in request")
         .clone();
 
-    match verify_signed_transaction(
-        &pool,
-        claims.pending_payment_id,
-        &data.rpc_url,
-        &data.tx_hash,
-    )
-    .await
-    {
-        Ok(id) => Ok(HttpResponse::Ok().json(serde_json::json!({
-            "status": "success",
-            "message": "Payment creation Successful",
-            "Payment id": id
-        }))),
-        Err(e) => {
-            TracingError!(error = ?e, "Payment creation error");
-            Ok(HttpResponse::Unauthorized().json(json!({
-                "error": "Invalid credentials"
-            })))
+    if data.network.to_lowercase().contains("sol") {
+        match verify_sol_signed_transaction(
+            &pool,
+            claims.pending_payment_id,
+            &data.rpc_url,
+            &data.tx_hash,
+        )
+        .await
+        {
+            Ok(id) => Ok(HttpResponse::Ok().json(serde_json::json!({
+                "status": "success",
+                "message": "Payment creation Successful",
+                "Payment id": id
+            }))),
+            Err(e) => {
+                TracingError!(error = ?e, "Payment creation error");
+                Ok(HttpResponse::Unauthorized().json(json!({
+                    "error": "Invalid credentials"
+                })))
+            }
+        }
+    } else {
+        match verify_signed_transaction(
+            &pool,
+            claims.pending_payment_id,
+            &data.rpc_url,
+            &data.tx_hash,
+        )
+        .await
+        {
+            Ok(id) => Ok(HttpResponse::Ok().json(serde_json::json!({
+                "status": "success",
+                "message": "Payment creation Successful",
+                "Payment id": id
+            }))),
+            Err(e) => {
+                TracingError!(error = ?e, "Payment creation error");
+                Ok(HttpResponse::Unauthorized().json(json!({
+                    "error": "Invalid credentials"
+                })))
+            }
         }
     }
 }
