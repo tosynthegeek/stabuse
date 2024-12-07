@@ -1,11 +1,15 @@
 use bigdecimal::ToPrimitive;
 use solana_client::{rpc_client::RpcClient, rpc_config::RpcTransactionConfig};
 use solana_sdk::{
-    commitment_config::CommitmentConfig, message::Message, pubkey::Pubkey, signature::Signature,
-    transaction::Transaction,
+    commitment_config::CommitmentConfig, message::Message, program_pack::Pack, pubkey::Pubkey,
+    signature::Signature, transaction::Transaction,
 };
+use solana_transaction_status::UiTransactionEncoding;
 use spl_associated_token_account::get_associated_token_address;
-use spl_token::instruction::{transfer_checked, TokenInstruction};
+use spl_token::{
+    instruction::{transfer_checked, TokenInstruction},
+    state::Mint,
+};
 use sqlx::{PgPool, Row};
 use std::{env, str::FromStr};
 
@@ -31,7 +35,6 @@ pub async fn create_payment_transaction(
     merchant_id: i32,
     asset: &str,
     amount: u64,
-    decimals: u8,
 ) -> Result<(Transaction, String), Box<dyn std::error::Error>> {
     let rpc_client = RpcClient::new(rpc_url.to_string());
     let chain_id = get_solana_network_identifier(rpc_url)?;
@@ -41,6 +44,9 @@ pub async fn create_payment_transaction(
     let payer_pubkey = Pubkey::from_str(payer)?;
     let merchant_pubkey = Pubkey::from_str(merchant.as_str())?;
     let token_mint_pubkey = Pubkey::from_str(token_mint.as_str())?;
+    let account_data = rpc_client.get_account_data(&token_mint_pubkey)?;
+    let mint = Mint::unpack(&account_data)?;
+    let decimals = mint.decimals;
 
     let user_token_account = get_associated_token_address(&payer_pubkey, &token_mint_pubkey);
     let merchant_token_account = get_associated_token_address(&merchant_pubkey, &token_mint_pubkey);
@@ -78,7 +84,7 @@ pub async fn create_payment_transaction(
     Ok((transaction, token))
 }
 
-pub async fn verify_signed_transaction(
+pub async fn verify_sol_signed_transaction(
     pool: &PgPool,
     pending_payment_id: i32,
     rpc_url: &str,
@@ -93,7 +99,7 @@ pub async fn verify_signed_transaction(
     let rpc_client = RpcClient::new(rpc_url.to_string());
     let chain_id = get_solana_network_identifier(rpc_url)?;
 
-    let (network, token_mint) =
+    let (network, _token_mint) =
         get_network_and_asset_address_with_chain_id(pool, &pending_payment.asset, chain_id as u64)
             .await?;
 
@@ -134,14 +140,12 @@ pub async fn verify_signed_transaction(
             "Transaction execution failed".to_string(),
         ));
     }
-    let decoded_transaction: Transaction =
-        transaction.transaction.transaction.decode().map_err(|e| {
-            StabuseError::InvalidData(format!("Failed to decode transaction: {}", e))
-        })?;
+
+    let decoded_transaction = transaction.transaction.transaction.decode().unwrap();
 
     validate_transfer_instruction(
         pool,
-        &decoded_transaction,
+        &decoded_transaction.into_legacy_transaction().unwrap(),
         &pending_payment,
         &pending_payment.asset,
         chain_id,
@@ -178,32 +182,49 @@ async fn validate_transfer_instruction(
     let merchant_address =
         get_merchant_network_address(pool, pending_payment.merchant_id, chain_id)
             .await
-            .map_err(|e| format!("Failed to get merchant address {}", e))?;
-    let token_mint_pubkey =
-        Pubkey::from_str(token_mint).map_err(|e| format!("Failed to get token mint{}", e))?;
-    let merchant_pubkey = Pubkey::from_str(merchant_address.as_str())
-        .map_err(|e| format!("Failed to get merchant mint {}", e))?;
+            .map_err(|e| StabuseError::Internal(format!("Failed to get merchant address {}", e)))?;
+
+    let token_mint_pubkey = Pubkey::from_str(token_mint)
+        .map_err(|e| StabuseError::Internal(format!("Failed to get token mint: {}", e)))?;
+    let merchant_pubkey = Pubkey::from_str(&merchant_address)
+        .map_err(|e| StabuseError::Internal(format!("Failed to get merchant pubkey: {}", e)))?;
     let payer_pubkey = Pubkey::from_str(&pending_payment.sender)
-        .map_err(|e| format!("Failed to get payer mint {}", e))?;
+        .map_err(|e| StabuseError::Internal(format!("Failed to get payer pubkey: {}", e)))?;
 
     let payer_token_account = get_associated_token_address(&payer_pubkey, &token_mint_pubkey);
     let merchant_token_account = get_associated_token_address(&merchant_pubkey, &token_mint_pubkey);
 
     let matching_instruction = transaction.message.instructions.iter().find(|instruction| {
-        if instruction.program_id != spl_token::id() {
+        let program_ids: Vec<Pubkey> = transaction
+            .message
+            .program_ids()
+            .into_iter()
+            .cloned()
+            .collect();
+
+        let instruction_program_id = instruction.program_id(&program_ids);
+
+        if *instruction_program_id != spl_token::id() {
             return false;
         }
 
         if let Ok(token_instruction) = TokenInstruction::unpack(&instruction.data) {
             match token_instruction {
                 TokenInstruction::TransferChecked { amount, decimals } => {
+                    let token_decimals = get_token_decimals(&pending_payment.asset).unwrap_or(0);
+
+                    // Use direct comparison of Pubkeys instead of strings
                     instruction.accounts.len() >= 4
-                        && instruction.accounts[0] == payer_token_account.to_bytes()
-                        && instruction.accounts[1] == token_mint_pubkey
-                        && instruction.accounts[2] == merchant_token_account
-                        && instruction.accounts[3] == payer_pubkey
+                        && Pubkey::from_str(&instruction.accounts[0].to_string()).unwrap()
+                            == payer_token_account
+                        && Pubkey::from_str(&instruction.accounts[1].to_string()).unwrap()
+                            == token_mint_pubkey
+                        && Pubkey::from_str(&instruction.accounts[2].to_string()).unwrap()
+                            == merchant_token_account
+                        && Pubkey::from_str(&instruction.accounts[3].to_string()).unwrap()
+                            == payer_pubkey
                         && amount == pending_payment.amount.to_u64().unwrap()
-                        && decimals == get_token_decimals(&pending_payment.asset).unwrap_or(0)
+                        && decimals == token_decimals
                 }
                 _ => false,
             }

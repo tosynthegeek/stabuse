@@ -15,7 +15,7 @@ use crate::{
             handle_add_asset, handle_add_network, handle_get_all_networks, handle_get_network,
             handle_get_network_supported_assets,
         },
-        payment_handlers::{evm_create_payment_request_handler, validate_evm_payment_handler},
+        payment_handlers::{create_payment_request_handler, validate_evm_payment_handler},
     },
 };
 use actix_web::web;
@@ -104,7 +104,7 @@ pub fn configure_payment_routes(cfg: &mut web::ServiceConfig) {
         web::scope("/user")
             .service(web::scope("/auth").route(
                 "/make-payment",
-                web::post().to(evm_create_payment_request_handler),
+                web::post().to(create_payment_request_handler),
             ))
             .service(web::scope("").wrap(auth).route(
                 "/verify-payment",

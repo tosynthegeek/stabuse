@@ -182,18 +182,20 @@ pub struct Payment {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct CreateEVMPaymentRequest {
+pub struct CreatePaymentRequest {
     pub merchant_id: i32,
     pub payment_amount: u64,
     pub user_address: String,
     pub asset: String,
     pub rpc_url: String,
+    pub network: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct ValidateEVMPaymentRequest {
+pub struct ValidatePaymentRequest {
     pub tx_hash: String,
     pub rpc_url: String,
+    pub network: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

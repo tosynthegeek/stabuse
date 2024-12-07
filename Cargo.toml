@@ -29,6 +29,7 @@ solana-client = "2.1.4"
 solana-sdk = "2.1.4"
 spl-token = "7.0.0"
 spl-associated-token-account = "6.0.0"
+solana-transaction-status = "2.1.5"
 
 [dependencies.idna]
 version = "=1.0.2"
