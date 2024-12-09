@@ -1,9 +1,7 @@
 use std::env;
-
 use sqlx::{postgres::PgPoolOptions, PgPool, Pool, Postgres};
 
 use crate::error::StabuseError;
-
 use super::migrations::{
     admins::create_admins_table::{
         CREATE_ADMINS_TABLE, CREATE_ADMIN_INVITES_TABLE, CREATE_OTP_TABLE,
@@ -56,6 +54,7 @@ pub async fn connect_db() -> Result<Pool<Postgres>, StabuseError> {
     dotenv::dotenv().ok();
 
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    println!("DATABASE_URL: {}", database_url);
     let pool = PgPoolOptions::new()
         .max_connections(5)
         .connect(&database_url)
