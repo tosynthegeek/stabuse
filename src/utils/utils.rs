@@ -1,7 +1,12 @@
 use crate::error::StabuseError;
+use alloy::hex;
 use bcrypt::{hash, DEFAULT_COST};
+use chrono::Utc;
+use reqwest::Client;
 use serde_json::{self, Value};
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
+use std::env;
 
 pub const MIN_PASSWORD_LENGTH: usize = 8;
 pub const MIN_USERNAME_LENGTH: usize = 3;
@@ -52,4 +57,38 @@ pub fn get_solana_network_identifier(rpc_url: &str) -> Result<i64, StabuseError>
             )));
         }
     };
+}
+
+pub fn generate_webhook_url(merchant_id: i32, user_address: &str, amount: u64) -> (String, String) {
+    let base_webhook_url = env::var("WEBHOOK_BASE_URL").expect("WEBHOOK_BASE_URL must be set");
+    let timestamp = Utc::now().to_rfc3339();
+
+    let data = format!("{}:{}:{}:{}", merchant_id, user_address, amount, timestamp);
+    let mut hasher = Sha256::new();
+    hasher.update(data);
+    let result = hasher.finalize();
+    let hash_hex = hex::encode(result);
+
+    let webhook_url = format!("{}/{}", base_webhook_url, hash_hex);
+
+    (webhook_url, timestamp)
+}
+
+pub async fn send_webhook_notification(webhook_url: &str, data: &str) -> Result<(), StabuseError> {
+    let client = Client::new();
+    let res = client
+        .post(webhook_url)
+        .header("Content-Type", "application/json")
+        .body(data.to_string())
+        .send()
+        .await
+        .map_err(|e| StabuseError::Internal(format!("Webhook failed: {}", e)))?;
+
+    if res.status().is_success() {
+        tracing::info!("Webhook delivered successfully to {}", webhook_url);
+    } else {
+        tracing::info!("Message published successfully to webhook: {}", webhook_url);
+    }
+
+    Ok(())
 }
