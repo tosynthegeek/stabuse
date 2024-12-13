@@ -108,6 +108,8 @@ pub struct AdminClaims {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PaymentClaims {
     pub pending_payment_id: i32,
+    pub network: String,
+    pub rpc: String,
     pub exp: i64, // expiration timestamp
     pub iat: i64, // issued at timestamp
 }
@@ -230,5 +232,28 @@ pub struct PendingPayment {
     pub amount: BigDecimal,
     pub asset: String,
     pub network: String,
+    pub webhook_url: String,
     pub time: NaiveDateTime,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct TransactionVerificationMessage {
+    pub pending_payment_id: i32,
+    pub tx_hash: String,
+    pub rpc_url: String,
+    pub network: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct PaymentAuthDetails {
+    pub jwt_token: String,
+    pub webhook_url: String,
+}
+
+#[derive(Serialize)]
+pub struct WebhookPayload {
+    pub payment_id: i32,
+    pub status: String,
+    pub tx_hash: String,
+    pub timestamp: String,
 }
