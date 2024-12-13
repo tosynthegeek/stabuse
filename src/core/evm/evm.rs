@@ -21,8 +21,13 @@ use crate::{
     error::StabuseError,
     merchant::merchant::get_merchant_network_address,
     network::network::get_network_and_asset_address_with_chain_id,
-    types::types::{CreatePaymentTransaction, PendingPayment, TransactionValidationParams},
-    utils::{utils::get_token_decimals, validation::address_validation::validate_address},
+    types::types::{
+        CreatePaymentTransaction, PaymentAuthDetails, PendingPayment, TransactionValidationParams,
+    },
+    utils::{
+        utils::{generate_webhook_url, get_token_decimals},
+        validation::address_validation::validate_address,
+    },
 };
 
 const REQUIRED_CONFIRMATIONS: u64 = 12;
@@ -42,7 +47,7 @@ pub async fn create_payment_request(
     user_address: &str,
     rpc_url: &str,
     asset: &str,
-) -> Result<(CreatePaymentTransaction, String), StabuseError> {
+) -> Result<(CreatePaymentTransaction, PaymentAuthDetails), StabuseError> {
     validate_address(user_address)?;
 
     let rpc = rpc_url
@@ -65,7 +70,7 @@ pub async fn create_payment_request(
         value: U256::from(amount),
     };
     let call_data = transfer_call.abi_encode();
-    println!("Token Address: {}", token_address);
+    tracing::info!("Token Address: {}", token_address);
 
     let nonce = provider.get_transaction_count(from_address).await?;
 
@@ -98,12 +103,17 @@ pub async fn create_payment_request(
             (None, None)
         };
 
+    let (webhook_url, timestamp) = generate_webhook_url(merchant_id, user_address, amount);
+    tracing::info!("Generated Webhook URL: {}", webhook_url);
+    tracing::info!("Generated Timestamp: {}", timestamp);
+
     let pending_payment_id: i32 = sqlx::query(ADD_PENDING_PAYMENT)
         .bind(merchant_id)
         .bind(user_address)
         .bind(amount.to_string())
         .bind(asset)
-        .bind(network)
+        .bind(network.clone())
+        .bind(webhook_url.clone())
         .fetch_one(pool)
         .await
         .map_err(|e| StabuseError::DatabaseError(e))?
@@ -111,7 +121,17 @@ pub async fn create_payment_request(
 
     dotenv::dotenv().ok();
     let jwt_secret = env::var("JWT_SECRET").expect("JWT_SECRET not set");
-    let token = generate_payment_jwt(pending_payment_id, &jwt_secret)?;
+    let token = generate_payment_jwt(
+        pending_payment_id,
+        &jwt_secret,
+        rpc_url.to_string(),
+        network,
+    )?;
+
+    let auth_details = PaymentAuthDetails {
+        jwt_token: token,
+        webhook_url: webhook_url,
+    };
 
     Ok((
         CreatePaymentTransaction {
@@ -125,7 +145,7 @@ pub async fn create_payment_request(
             max_fee_per_gas: max_fee_per_gas.map(|f| format!("0x{:x}", f)),
             max_priority_fee_per_gas: max_priority_fee_per_gas.map(|f| format!("0x{:x}", f)),
         },
-        token,
+        auth_details,
     ))
 }
 
@@ -134,13 +154,13 @@ pub async fn verify_signed_transaction(
     pending_payment_id: i32,
     rpc_url: &str,
     tx_hash: &str,
-) -> Result<i32, StabuseError> {
+) -> Result<(i32, String), StabuseError> {
     let rpc = rpc_url
         .parse()
         .map_err(|e| StabuseError::Internal(format!("Invalid RPC URL: {}", e)))?;
     let provider = ProviderBuilder::new().on_http(rpc);
     let chain_id = provider.get_chain_id().await?;
-    println!("Pending payment id: {}", pending_payment_id);
+    tracing::info!("Pending payment id: {}", pending_payment_id);
     let pending_payment = sqlx::query_as::<_, PendingPayment>(GET_PENDING_PAYMENT)
         .bind(pending_payment_id)
         .fetch_one(pool)
@@ -270,7 +290,7 @@ pub async fn verify_signed_transaction(
         .await
         .map_err(|e| StabuseError::DatabaseError(e))?;
 
-    println!("Pending payment: {:?}", pending_payment);
+    tracing::info!("Pending payment: {:?}", pending_payment);
     let id = sqlx::query_scalar(ADD_PAYMENT)
         .bind(pending_payment.merchant_id)
         .bind(pending_payment.sender)
@@ -282,7 +302,7 @@ pub async fn verify_signed_transaction(
         .await
         .map_err(|e| StabuseError::DatabaseError(e))?;
 
-    Ok(id)
+    Ok((id, pending_payment.webhook_url))
 }
 
 fn validate_transfer_event(
@@ -324,8 +344,8 @@ fn validate_transfer_event(
         })
         .sum();
 
-    println!("total amount: {}", total_transfer_amount);
-    println!("expected amount: {}", params.amount);
+    tracing::info!("total amount: {}", total_transfer_amount);
+    tracing::info!("expected amount: {}", params.amount);
     if total_transfer_amount != params.amount {
         return Err(StabuseError::InvalidData(
             "Total transfer amount does not match expected amount".to_string(),
