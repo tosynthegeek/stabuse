@@ -13,9 +13,11 @@ use crate::{
         },
         network_handler::{
             handle_add_asset, handle_add_network, handle_get_all_networks, handle_get_network,
-            handle_get_network_supported_assets,
+            handle_get_network_supported_assets, health_check,
         },
-        payment_handlers::{create_payment_request_handler, validate_evm_payment_handler},
+        payment_handlers::{
+            confirm_payment_transaction, create_payment_request_handler, validate_payment_handler,
+        },
     },
 };
 use actix_web::web;
@@ -35,6 +37,7 @@ pub fn configure_public_routes(cfg: &mut web::ServiceConfig) {
             web::get().to(handle_get_network_supported_assets),
         )
         .route("/getnetwork", web::get().to(handle_get_network))
+        .route("/health", web::get().to(health_check))
         .route("/getallnetworks", web::get().to(handle_get_all_networks));
 }
 
@@ -106,9 +109,14 @@ pub fn configure_payment_routes(cfg: &mut web::ServiceConfig) {
                 "/make-payment",
                 web::post().to(create_payment_request_handler),
             ))
-            .service(web::scope("").wrap(auth).route(
-                "/verify-payment",
-                web::post().to(validate_evm_payment_handler),
-            )),
+            .service(
+                web::scope("")
+                    .wrap(auth)
+                    .route("/verify-payment", web::post().to(validate_payment_handler))
+                    .route(
+                        "/tx-payment/{tx_hash}",
+                        web::get().to(confirm_payment_transaction),
+                    ),
+            ),
     );
 }
