@@ -97,3 +97,15 @@ pub async fn handle_get_all_networks(_req: HttpRequest, pool: web::Data<PgPool>)
         }
     }
 }
+
+pub async fn health_check(pool: web::Data<PgPool>) -> HttpResponse {
+    if sqlx::query("SELECT 1")
+        .fetch_optional(pool.get_ref())
+        .await
+        .is_ok()
+    {
+        HttpResponse::Ok().json(serde_json::json!({"status": "healthy"}))
+    } else {
+        HttpResponse::InternalServerError().json(serde_json::json!({"status": "unhealthy"}))
+    }
+}
