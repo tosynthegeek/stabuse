@@ -7,7 +7,7 @@ pub const _GET_PAYMENTS_FOR_MERCHANT: &str = r#"
 "#;
 
 pub const GET_PENDING_PAYMENT: &str = r#"
-    SELECT id, merchant_id, sender, amount, asset, network, time 
+    SELECT id, merchant_id, sender, amount, asset, network, webhook_url, time 
     FROM pending_payments
     WHERE id = $1
 "#;
@@ -42,4 +42,9 @@ pub const _AGGREGATE_PAYMENTS: &str = r#"
     FROM payments
     GROUP BY network, asset
     ORDER BY total_amount DESC
+"#;
+pub const GET_PAYMENT_EXISTENCE_BY_HASH: &str = r#"
+    SELECT EXISTS(
+        SELECT 1 FROM payments WHERE tx_hash = $1
+    )
 "#;

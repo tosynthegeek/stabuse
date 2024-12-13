@@ -5,6 +5,7 @@ use actix_web_httpauth::extractors::{
 };
 use chrono::{Duration, Utc};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
+use tracing::error as TracingError;
 
 use crate::{
     error::StabuseError,
@@ -65,7 +66,7 @@ pub async fn merchant_jwt_validator(
             Ok(req)
         }
         Err(e) => {
-            eprintln!("Token validation failed: {:?}", e);
+            TracingError!(error = ?e, "Token validation failed");
 
             let config = req
                 .app_data::<Config>()
@@ -133,7 +134,7 @@ pub async fn admin_jwt_validator(
             Ok(req)
         }
         Err(e) => {
-            eprintln!("Token validation failed: {:?}", e);
+            TracingError!(error = ?e, "Token validation failed");
 
             let config = req
                 .app_data::<Config>()
@@ -146,13 +147,20 @@ pub async fn admin_jwt_validator(
     }
 }
 
-pub fn generate_payment_jwt(pending_payment_id: i32, secret: &str) -> Result<String, StabuseError> {
+pub fn generate_payment_jwt(
+    pending_payment_id: i32,
+    secret: &str,
+    rpc: String,
+    network: String,
+) -> Result<String, StabuseError> {
     let expiration = Utc::now()
         .checked_add_signed(Duration::minutes(30))
         .expect("valid timestamp")
         .timestamp();
     let claims = PaymentClaims {
         pending_payment_id: pending_payment_id,
+        rpc: rpc,
+        network: network,
         exp: expiration,
         iat: Utc::now().timestamp(),
     };
@@ -196,7 +204,8 @@ pub async fn pending_payment_jwt_validator(
             Ok(req)
         }
         Err(e) => {
-            eprintln!("Token validation failed: {:?}", e);
+            TracingError!(error = ?e, "Token validation failed");
+            ("Token validation failed: {:?}", e);
 
             let config = req
                 .app_data::<Config>()

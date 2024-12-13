@@ -54,13 +54,13 @@ pub async fn connect_db() -> Result<Pool<Postgres>, StabuseError> {
     dotenv::dotenv().ok();
 
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    println!("DATABASE_URL: {}", database_url);
+    tracing::info!("DATABASE_URL: {}", database_url);
     let pool = PgPoolOptions::new()
         .max_connections(5)
         .connect(&database_url)
         .await
         .map_err(|e| StabuseError::DatabaseError(e))?;
-    println!("Connected to the database!");
+    tracing::info!("Connected to the database!");
 
     Ok(pool)
 }
