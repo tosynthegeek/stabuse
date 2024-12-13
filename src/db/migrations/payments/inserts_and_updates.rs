@@ -8,9 +8,9 @@ pub const ADD_PAYMENT: &str = r#"
 
 pub const ADD_PENDING_PAYMENT: &str = r#"
     INSERT INTO pending_payments 
-        (merchant_id, sender, amount, asset, network)
+        (merchant_id, sender, amount, asset, network, webhook_url)
     VALUES 
-        ($1, $2, $3::NUMERIC, $4, $5)
+        ($1, $2, $3::NUMERIC, $4, $5, $6)
     returning id
 "#;
 

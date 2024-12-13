@@ -18,5 +18,6 @@ pub const CREATE_PENDING_PAYMENTS_TABLE: &str = r#"
     amount NUMERIC(28,8) NOT NULL CHECK (amount > 0),
     asset VARCHAR(255) NOT NULL,
     network VARCHAR(255) NOT NULL,
+    webhook_url TEXT NOT NULL,
     time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )"#;
