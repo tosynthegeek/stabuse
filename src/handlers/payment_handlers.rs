@@ -4,12 +4,13 @@ use sqlx::PgPool;
 use tracing::error as TracingError;
 
 use crate::{
-    core::{
-        evm::evm::{create_payment_request, verify_signed_transaction},
-        sol::sol::{create_payment_transaction, verify_sol_signed_transaction},
-    },
+    core::{evm::evm::create_payment_request, sol::sol::create_payment_transaction},
+    db::migrations::payments::select_queries::GET_PAYMENT_EXISTENCE_BY_HASH,
     error::StabuseError,
-    types::types::{CreatePaymentRequest, PaymentClaims, ValidatePaymentRequest},
+    mq::mq::publish_message,
+    types::types::{
+        CreatePaymentRequest, PaymentClaims, TransactionVerificationMessage, ValidatePaymentRequest,
+    },
 };
 
 pub async fn create_payment_request_handler(
@@ -32,7 +33,8 @@ pub async fn create_payment_request_handler(
                 "status": "success",
                 "message": "Payment creation Successful",
                 "transaction": tx,
-                "token": token
+                "token": token.jwt_token,
+                "webhook_url": token.webhook_url
             }))),
             Err(e) => {
                 TracingError!(error = ?e, "Payment creation error");
@@ -56,7 +58,8 @@ pub async fn create_payment_request_handler(
                 "status": "success",
                 "message": "Payment creation Successful",
                 "transaction": tx,
-                "token": token
+                "token": token.jwt_token,
+                "webhook_url": token.webhook_url
             }))),
             Err(e) => {
                 TracingError!(error = ?e, "Payment creation error");
@@ -68,9 +71,8 @@ pub async fn create_payment_request_handler(
     }
 }
 
-pub async fn validate_evm_payment_handler(
+pub async fn validate_payment_handler(
     req: HttpRequest,
-    pool: web::Data<PgPool>,
     body: web::Json<ValidatePaymentRequest>,
 ) -> Result<HttpResponse, StabuseError> {
     let data = body.into_inner();
@@ -80,47 +82,45 @@ pub async fn validate_evm_payment_handler(
         .expect("Claims must be present in request")
         .clone();
 
-    if data.network.to_lowercase().contains("sol") {
-        match verify_sol_signed_transaction(
-            &pool,
-            claims.pending_payment_id,
-            &data.rpc_url,
-            &data.tx_hash,
-        )
-        .await
-        {
-            Ok(id) => Ok(HttpResponse::Ok().json(serde_json::json!({
-                "status": "success",
-                "message": "Payment creation Successful",
-                "Payment id": id
-            }))),
-            Err(e) => {
-                TracingError!(error = ?e, "Payment creation error");
-                Ok(HttpResponse::Unauthorized().json(json!({
-                    "error": "Invalid credentials"
-                })))
-            }
+    let message = TransactionVerificationMessage {
+        pending_payment_id: claims.pending_payment_id,
+        tx_hash: data.tx_hash,
+        rpc_url: data.rpc_url,
+        network: claims.network,
+    };
+
+    let rabbitmq_url =
+        std::env::var("RABBITMQ_URL").expect("RABBITMQ_URL must be set in environment variables");
+    let queue_name =
+        std::env::var("QUEUE_NAME").expect("QUEUE_NAME must be set in environment variables");
+
+    match publish_message(&rabbitmq_url, &queue_name, message).await {
+        Ok(_) => Ok(HttpResponse::Ok().json(serde_json::json!({
+            "status": "success",
+            "message": "Payment validation request sent successfully"
+        }))),
+        Err(e) => {
+            tracing::error!(error = ?e, "Failed to publish payment validation message");
+            Ok(HttpResponse::InternalServerError().json(serde_json::json!({
+                "error": "Failed to process payment validation request"
+            })))
         }
+    }
+}
+
+pub async fn confirm_payment_transaction(
+    pool: web::Data<PgPool>,
+    tx_hash: web::Path<String>,
+) -> Result<HttpResponse, StabuseError> {
+    let exists: bool = sqlx::query_scalar(GET_PAYMENT_EXISTENCE_BY_HASH)
+        .bind(&tx_hash.into_inner())
+        .fetch_one(pool.get_ref())
+        .await
+        .map_err(|e| StabuseError::DatabaseError(e))?;
+
+    if exists {
+        Ok(HttpResponse::Ok().json(json!({ "status": "confirmed" })))
     } else {
-        match verify_signed_transaction(
-            &pool,
-            claims.pending_payment_id,
-            &data.rpc_url,
-            &data.tx_hash,
-        )
-        .await
-        {
-            Ok(id) => Ok(HttpResponse::Ok().json(serde_json::json!({
-                "status": "success",
-                "message": "Payment creation Successful",
-                "Payment id": id
-            }))),
-            Err(e) => {
-                TracingError!(error = ?e, "Payment creation error");
-                Ok(HttpResponse::Unauthorized().json(json!({
-                    "error": "Invalid credentials"
-                })))
-            }
-        }
+        Ok(HttpResponse::Ok().json(json!({ "status": "not_found" })))
     }
 }
