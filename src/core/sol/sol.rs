@@ -22,8 +22,8 @@ use crate::{
     error::StabuseError,
     merchant::merchant::get_merchant_network_address,
     network::network::get_network_and_asset_address_with_chain_id,
-    types::types::PendingPayment,
-    utils::utils::{get_solana_network_identifier, get_token_decimals},
+    types::types::{PaymentAuthDetails, PendingPayment},
+    utils::utils::{generate_webhook_url, get_solana_network_identifier, get_token_decimals},
 };
 
 const REQUIRED_CONFIRMATIONS: u64 = 12;
@@ -35,7 +35,7 @@ pub async fn create_payment_transaction(
     merchant_id: i32,
     asset: &str,
     amount: u64,
-) -> Result<(Transaction, String), Box<dyn std::error::Error>> {
+) -> Result<(Transaction, PaymentAuthDetails), Box<dyn std::error::Error>> {
     let rpc_client = RpcClient::new(rpc_url.to_string());
     let chain_id = get_solana_network_identifier(rpc_url)?;
     let merchant = get_merchant_network_address(pool, merchant_id, chain_id).await?;
@@ -67,21 +67,36 @@ pub async fn create_payment_transaction(
 
     let transaction = Transaction::new_unsigned(message);
 
+    let (webhook_url, timestamp) = generate_webhook_url(merchant_id, payer, amount);
+    tracing::info!("Generated Webhook URL: {}", webhook_url);
+    tracing::info!("Generated Timestamp: {}", timestamp);
+
     let pending_payment_id: i32 = sqlx::query(ADD_PENDING_PAYMENT)
         .bind(merchant_id)
         .bind(payer)
         .bind(amount.to_string())
         .bind(asset)
-        .bind(network)
+        .bind(network.clone())
+        .bind(webhook_url.clone())
         .fetch_one(pool)
         .await?
         .get(0);
 
     dotenv::dotenv().ok();
     let jwt_secret = env::var("JWT_SECRET").expect("JWT_SECRET not set");
-    let token = generate_payment_jwt(pending_payment_id, &jwt_secret)?;
+    let token = generate_payment_jwt(
+        pending_payment_id,
+        &jwt_secret,
+        rpc_url.to_string(),
+        network,
+    )?;
 
-    Ok((transaction, token))
+    let auth_details = PaymentAuthDetails {
+        jwt_token: token,
+        webhook_url: webhook_url.clone(),
+    };
+
+    Ok((transaction, auth_details))
 }
 
 pub async fn verify_sol_signed_transaction(
@@ -89,7 +104,7 @@ pub async fn verify_sol_signed_transaction(
     pending_payment_id: i32,
     rpc_url: &str,
     tx_hash: &str,
-) -> Result<i32, StabuseError> {
+) -> Result<(i32, String), StabuseError> {
     let pending_payment = sqlx::query_as::<_, PendingPayment>(GET_PENDING_PAYMENT)
         .bind(pending_payment_id)
         .fetch_one(pool)
@@ -169,7 +184,7 @@ pub async fn verify_sol_signed_transaction(
         .await
         .map_err(|e| StabuseError::DatabaseError(e))?;
 
-    Ok(id)
+    Ok((id, pending_payment.webhook_url))
 }
 
 async fn validate_transfer_instruction(
