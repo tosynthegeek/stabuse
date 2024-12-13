@@ -1,0 +1,60 @@
+version: "3.8"
+
+services:
+  rust-app:
+    build: .
+    ports:
+      - "8080:8080"
+    networks:
+      - monitoring
+    depends_on:
+      - postgres
+      - prometheus
+      - rabbitmq
+    env_file: .env
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus.yaml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    networks:
+      - monitoring
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+
+  postgres:
+    image: postgres:15-alpine
+    env_file: .env
+    ports:
+      - "5432:5432"
+    networks:
+      - monitoring
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - monitoring
+    env_file: .env
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 10s
+      retries: 5
+
+networks:
+  monitoring:
+    driver: bridge
+
+volumes:
+  postgres_data:
