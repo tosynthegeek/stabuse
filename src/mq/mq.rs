@@ -96,7 +96,7 @@ async fn handle_message(
         Ok((id, webhook_url)) => {
             tracing::info!("Transaction verified successfully!");
             delivery.ack(BasicAckOptions::default()).await?;
-            tracing::info!("Payment creation Successful: Payment id {}", id);
+            tracing::info!("Payment creation Successful with payment id: {}", id);
 
             let payload = WebhookPayload {
                 payment_id: id,
